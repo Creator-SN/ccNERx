@@ -15,7 +15,7 @@ trainer = NERTrainer(10, [0, 1, 2, 3],
                      batch_size=300,
                      eval_batch_size=300)
 
-for i in trainer():
+for i in trainer(resume_path='save_model', resume_uid='6b5f5426'):
     a = i
 
 # %%
@@ -26,8 +26,8 @@ predict = NERPredict(True,
                      bert_config_file_name='./model/chinese_wwm_ext/bert_config.json',
                      vocab_file_name='./model/chinese_wwm_ext/vocab.txt',
                      tags_file_name='./data/FN_v2/tags_list.txt',
-                     bert_model_path='./save_model/bert/6b5f5426_bert.pth',
-                     lstm_crf_model_path='./save_model/lstm_crf/6b5f5426_lstm_crf.pth',
+                     bert_model_path='./save_model/bert/e68f242c_bert.pth',
+                     lstm_crf_model_path='./save_model/lstm_crf/e68f242c_lstm_crf.pth',
                      hidden_dim=150)
 
 # %%
@@ -43,7 +43,7 @@ for idx, label in enumerate(labels):
 import re
 from tqdm import tqdm
 
-with open('./data/FN_Sichuan/top100.csv', mode='r') as f:
+with open('./data/FN_v2/0323_top100.csv', mode='r') as f:
     ori_list = f.read().split('\n')
 if ori_list[-1].strip() == '':
     ori_list = ori_list[:-1]
@@ -68,10 +68,10 @@ for line in tqdm(ori_list):
                     word = ''
     result_list.append(result)
 
-with open('./data/FN_Sichuan/top100_keywords.csv', mode='w+') as f:
+with open('./data/FN_v2/0323_top100_keywords.csv', mode='w+') as f:
     f.write('')
 
-with open('./data/FN_Sichuan/top100_keywords.csv', mode='a+') as f:
+with open('./data/FN_v2/0323_top100_keywords.csv', mode='a+') as f:
     for item in result_list:
         f.write('{}\n'.format(item))
 
