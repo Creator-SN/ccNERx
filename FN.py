@@ -13,7 +13,8 @@ trainer = NERTrainer(10, [0, 1, 2, 3],
                      word_tag_split='\t',
                      pattern='(\tO',
                      batch_size=300,
-                     eval_batch_size=300)
+                     eval_batch_size=300,
+                     task_name='FN_v2')
 
 for i in trainer():
     a = i

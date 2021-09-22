@@ -29,7 +29,8 @@ class NERTrainer(ITrainer):
                  pattern='， O',
                  padding_length=50,
                  batch_size=32,
-                 eval_batch_size=None):
+                 eval_batch_size=None,
+                 task_name=None):
 
         self.eval_data = True if eval_file_name != None else False
         self.num_epochs = num_epochs
@@ -40,6 +41,7 @@ class NERTrainer(ITrainer):
         self.tagset_size = len(self.dm.tag_to_idx)
         self.model_init(bert_config_file_name,
                         pretrained_file_name, hidden_dim)
+        self.task_name = task_name
 
     def model_init(self, bert_config_file_name, pretrained_file_name, hidden_dim):
         self.bert_ner = BertNER(bert_config_file_name, pretrained_file_name,
@@ -71,10 +73,13 @@ class NERTrainer(ITrainer):
         self.birnncrf.to(device)
 
         if not resume_path == False:
-            print('Accessing Resume PATH: {} uid: {} ...\n'.format(resume_path, resume_uid))
-            bert_model_dict = torch.load(os.path.join(resume_path, 'bert', '{}_bert.pth'.format(resume_uid))).module.state_dict()
+            print('Accessing Resume PATH: {} uid: {} ...\n'.format(
+                resume_path, resume_uid))
+            bert_model_dict = torch.load(os.path.join(
+                resume_path, 'bert', '{}_bert.pth'.format(resume_uid))).module.state_dict()
             self.model.module.load_state_dict(bert_model_dict)
-            self.birnncrf = torch.load(os.path.join(resume_path, 'lstm_crf', '{}_lstm_crf.pth'.format(resume_uid)))
+            self.birnncrf = torch.load(os.path.join(
+                resume_path, 'lstm_crf', '{}_lstm_crf.pth'.format(resume_uid)))
             self.model.to(device)
             self.birnncrf.to(device)
 
@@ -134,12 +139,13 @@ class NERTrainer(ITrainer):
                     'acc': train_acc,
                     'recall': train_recall
                 })
-            
+
             model_uid = self.save_model()
             if self.eval_data:
                 self.eval()
-        
-            self.analysis.save_csv(uid=current_uid)
+
+            self.analysis.save_csv(
+                uid=current_uid if self.task_name == None else self.task_name)
             yield (current_epoch, self.analysis.train_record, self.analysis.eval_record, self.analysis.model_record, model_uid)
 
     def eval(self):
@@ -163,7 +169,7 @@ class NERTrainer(ITrainer):
                     tags = Variable(tags)
 
                 outputs = self.model(input_ids=sentence,
-                                    attention_mask=sentence.gt(0))
+                                     attention_mask=sentence.gt(0))
                 hidden_states = outputs[0]
                 loss = self.birnncrf.loss(hidden_states, sentence.gt(0), tags)
                 loss = loss.mean()
@@ -183,7 +189,7 @@ class NERTrainer(ITrainer):
 
                 test_iter.set_description('Eval Result')
                 test_iter.set_postfix(eval_loss=eval_loss / test_count, eval_acc=test_acc, eval_recall=test_recall,
-                                    F1=(2 * test_acc * test_recall) / (test_acc + test_recall + alpha))
+                                      F1=(2 * test_acc * test_recall) / (test_acc + test_recall + alpha))
             self.analysis.append_eval_record({
                 'loss': loss.data.item(),
                 'f1': (2 * test_acc * test_recall) / (test_acc + test_recall + alpha),
@@ -193,16 +199,21 @@ class NERTrainer(ITrainer):
 
     def save_model(self):
         uid = str(uuid.uuid1()).split('-')[0]
-        if not os.path.exists('./save_model/bert'):
-            os.makedirs('./save_model/bert')
-        if not os.path.exists('./save_model/lstm_crf'):
-            os.makedirs('./save_model/lstm_crf')
-        torch.save(self.model, './save_model/bert/{}_bert.pth'.format(uid))
+        if self.task_name == None:
+            dir = 'undefined'
+        else:
+            dir = self.task_name
+        if not os.path.exists('./save_model/{}/bert'.format(dir)):
+            os.makedirs('./save_model/{}/bert'.format(dir))
+        if not os.path.exists('./save_model/{}/lstm_crf'.format(dir)):
+            os.makedirs('./save_model/{}/lstm_crf'.format(dir))
+        torch.save(
+            self.model, './save_model/{}/bert/{}_bert.pth'.format(dir, uid))
         torch.save(self.birnncrf,
-                   './save_model/lstm_crf/{}_lstm_crf.pth'.format(uid))
+                   './save_model/{}/lstm_crf/{}_lstm_crf.pth'.format(dir, uid))
         self.analysis.append_model_record(uid)
         return uid
-    
+
     def __call__(self, **arg):
         for r in self.train(**arg):
             yield r
