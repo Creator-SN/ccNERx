@@ -6,13 +6,13 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.autograd import Variable
 from transformers import BertConfig, BertTokenizer, BertModel, get_linear_schedule_with_warmup
-from crf import CRF
-from model_with_bert import BiRnnCrf
+from ner.crf import CRF
+from ner.model_with_bert import BiRnnCrf
 from tqdm import tqdm
 from ICCSupervised.ICCSupervised import ITrainer
-from dataloader import CCDataLoader
-from analysis import CCAnalysis
-from model import BertNER
+from ner.dataloader import CCDataLoader
+from ner.analysis import CCAnalysis
+from ner.model import BertNER
 
 
 class NERTrainer(ITrainer):

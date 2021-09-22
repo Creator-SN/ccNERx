@@ -1,8 +1,8 @@
 import torch
 import torch.nn as nn
 from transformers import BertConfig, BertTokenizer, BertModel
-from crf import CRF
-from model_with_bert import BiRnnCrf
+from ner.crf import CRF
+from ner.model_with_bert import BiRnnCrf
 from ICCSupervised.ICCSupervised import IModel
 
 class BertNER(IModel):

@@ -1,5 +1,5 @@
 # %%
-from trainer import NERTrainer
+from ner.trainer import NERTrainer
 
 # %%
 trainer = NERTrainer(10, [0, 1, 2, 3],
@@ -15,11 +15,11 @@ trainer = NERTrainer(10, [0, 1, 2, 3],
                      batch_size=300,
                      eval_batch_size=300)
 
-for i in trainer(resume_path='save_model', resume_uid='6b5f5426'):
+for i in trainer():
     a = i
 
 # %%
-from predicter import NERPredict
+from ner.predicter import NERPredict
 
 # %%
 predict = NERPredict(True,

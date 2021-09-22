@@ -1,6 +1,6 @@
 import torch.nn as nn
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
-from crf import CRF
+from ner.crf import CRF
 
 
 class BiRnnCrf(nn.Module):

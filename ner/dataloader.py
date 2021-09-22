@@ -1,6 +1,6 @@
 import re
 import torch
-from utils import DataManager
+from ner.utils import DataManager
 from torch.autograd import Variable
 from ICCSupervised.ICCSupervised import IDataLoader
 from torch.utils.data import TensorDataset, DataLoader, Dataset
