@@ -10,7 +10,7 @@ from ner.crf import CRF
 from ner.model_with_bert import BiRnnCrf
 from tqdm import tqdm
 from ICCSupervised.ICCSupervised import ITrainer
-from ner.dataloader import CCDataLoader
+from ner.dataloader import AutoDataLoader
 from ner.analysis import CCAnalysis
 from ner.model import BertNER
 
@@ -49,7 +49,7 @@ class NERTrainer(ITrainer):
         self.model, self.birnncrf = self.bert_ner()
 
     def dataloader_init(self, train_file_name, vocab_file_name, tags_file_name, word_tag_split, pattern, padding_length, batch_size, eval_file_name, eval_batch_size):
-        self.dataloader = CCDataLoader(
+        self.dataloader = AutoDataLoader(
             train_file_name, vocab_file_name, tags_file_name, word_tag_split, eval_file_name, pattern, padding_length, batch_size, eval_batch_size)
         self.mydata, self.dataiter, self.dm = self.dataloader()[0]
         if self.eval_data:

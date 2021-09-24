@@ -9,9 +9,10 @@ from ner.crf import CRF
 from ner.model_with_bert import BiRnnCrf
 from tqdm import tqdm
 from ICCSupervised.ICCSupervised import IPredict
-from ner.dataloader import CCDataLoader, BERTDataManager
+from ner.dataloader import AutoDataLoader
 from ner.analysis import CCAnalysis
 from ner.model import BertNER
+from ner.loaders.cn_loader import BERTDataManager
 
 
 class NERPredict(IPredict):

@@ -1,64 +1,78 @@
-# 后端结构
+# CCNER
 
-## 接口
+- ICCSupervised
+- ner
+    - analysis.py
+    - crf.py
+    - analysis.py
+    - dataloader.py
+    - model_with_bert.py
+    - model.py
+    - predicter.py
+    - trainer.py
+    - utils.py
 
-### 数据加载器
-- 读取数据集
-- 数据集合法性验证
-- 输出处理数据
+## Requirements
 
-### 模型主体
-- 模型最终架构
+```bash
+transformers==4.5.1
+torch
+```
 
-### 模型训练器
-- 引入模型
-- 引入数据加载器
-- 引入可视化数据
-- 模型初始化
-- 训练模型
-- 保存模型
-- 评估模型
+## Demo
 
-### 模型使用
-- 引入模型
-- 模型初始化
-- 加载数据
-- 模型预测
+**Trainer**
 
-### 可视化数据
-- 评估工具类
+```python
+# %%
+from trainer import NERTrainer
 
-## 静态目录
+# %%
+trainer = NERTrainer(10, [0, 1, 2, 3],
+                     bert_config_file_name='./model/chinese_wwm_ext/bert_config.json',
+                     pretrained_file_name='./model/chinese_wwm_ext/pytorch_model.bin',
+                     hidden_dim=150,
+                     train_file_name='./data/news/train.txt',
+                     vocab_file_name='./model/chinese_wwm_ext/vocab.txt',
+                     tags_file_name='./data/news_tags_list.txt',
+                     eval_file_name='./data/news/test.txt',
+                     batch_size=300,
+                     eval_batch_size=64)
 
-### 原始数据集临时缓冲区
+for i in trainer():
+    a = i
+```
 
-### 模型临时存储区
+**Predictor**
 
-## gRPC Web API
+```python
+# %%
+from predicter import NERPredict
 
-### Data
-- 上传数据集
-    - post [用户名,数据集]
-    - return [数据集状态]
-- 查看临时数据集列表
-    - get [用户名]
-    - return [数据集列表]
-- 查看某一个数据集
-    - get [用户名,数据集id]
-    - return [数据集]
-- 删除临时数据集
-    - get [用户名,数据集id]
-    - return [状态]
+# %%
+predict = NERPredict(True,
+                     bert_config_file_name='./model/chinese_wwm_ext/bert_config.json',
+                     vocab_file_name='./model/chinese_wwm_ext/vocab.txt',
+                     tags_file_name='./data/news_tags_list.txt',
+                     bert_model_path='./save_model/bert/cbef37de_bert.pth',
+                     lstm_crf_model_path='./save_model/lstm_crf/cbef37de_lstm_crf.pth',
+                     hidden_dim=150)
 
-### Model
-- 模型训练
-    - post [训练模式,数据集id]
-    - return [实时状态,最佳模型]
+# %%
+print(predict(["坐落于福州的福州大学ACM研究生团队, 在帅气幽默的傅仰耿老师带领下, 正在紧张刺激的开发一套全新的神秘系统。","在福州大学的后山, 驻扎着福大后山协会, 会长是陈学勤同志。"])[2:])
 
-- 模型评估
-    - post [模型,数据集id]
-    - return [实时状态,最终状态]
 
-- 模型预测
-    - post [模型,预测数据]
-    - return [预测结果]
+# %%
+labels, text = predict(["福建省能源集团有限责任公司（以下简称集团）成立于2009年12月,是由福建省煤炭工业（集团）有限责任公司和福建省建材（控股）有限责任公司整合重组而成，系福建省属国有企业，2015年7月起并表福建石油化工集团有限责任公司。集团拥有全资及控股并表企业176家，在职员工2万余人，其中福能股份、福建水泥在主板上市，福能租赁、福能期货在新三板挂牌。集团注册资本金100亿元，资信等级连续多年保持AAA级别。集团连年列入中国企业500强。"])[2:]
+
+# %%
+labels, text = predict(["欢迎福能集团黄守清院长莅临福州大学ACM团队指导工作！"])[2:]
+
+# %%
+for idx, label in enumerate(labels):
+    t = text[idx]
+    for j, item in enumerate(label):
+        print('{}\t{}'.format(t[j], item))
+
+# %%
+```
