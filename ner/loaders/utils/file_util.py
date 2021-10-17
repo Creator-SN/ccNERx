@@ -1,5 +1,6 @@
 from typing import Iterator
 from itertools import (takewhile, repeat)
+from tqdm import *
 
 
 class FileUtil():
@@ -21,7 +22,7 @@ class FileUtil():
                 line = f.readline()
 
     @staticmethod
-    def count_lines(filename: str) -> int:
+    def count_lines(filename: str, show_progress: bool = False) -> int:
         """get lines count
 
         Args:
@@ -34,4 +35,6 @@ class FileUtil():
         with open(filename, "r", encoding='utf-8') as f:
             buf_gen = takewhile(lambda x: x, (f.read(buffer)
                                 for _ in repeat(None)))
+            if show_progress:
+                buf_gen = tqdm(buf_gen,desc=f"count {filename} line")
             return sum(buf.count('\n') for buf in buf_gen)

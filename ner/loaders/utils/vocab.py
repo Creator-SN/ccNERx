@@ -3,7 +3,7 @@ from ner.loaders.utils import *
 from tqdm import *
 
 
-class Vocob():
+class Vocab():
 
     def __init__(self):
         self.item2idx = {}
@@ -24,8 +24,8 @@ class Vocob():
         """
         self.is_word = is_word
         if not has_default and self.is_word:
-            self += '<pad>'
-            self += '<unk>'
+            self += "<pad>"
+            self += "<unk>"
             for i in range(unk_num):
                 self += f'<unk>{i+1}'
         for word in words:
@@ -102,3 +102,4 @@ class Vocob():
         self.item2idx[token] = self.size
         self.idx2item.append(token)
         self.size += 1
+        return self

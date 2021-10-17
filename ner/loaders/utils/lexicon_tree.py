@@ -71,7 +71,7 @@ class Trie():
         """
         matched: List[str] = []
         ptr: TrieNode = self.root
-        for i, letter in enumerate(len(str)):
+        for i, letter in enumerate(sent):
             if i > self.max_depth:
                 break
             ptr = ptr.children.get(letter)
@@ -98,3 +98,20 @@ class Trie():
             for word in self.enumerateMatch(sub_sent):
                 matched_set.add(word)
         return sorted(matched_set)
+
+    def getAllMatchedWordList(self, sent: str, max_words: None) -> List[List[str]]:
+        matched: List[List[str]] = [[] for i in range(len(sent))]
+        for i in range(len(sent)):
+            sub_sent = sent[i:]
+            words = self.enumerateMatch(sub_sent)
+            if max_words != None:
+                words = words[:max_words]
+            for word in words:
+                for j in range(i+1, i+len(word)):
+                    matched[j].append(word)
+                if len(matched[i]) > 0 and len(word) == 1:
+                    continue
+                matched[i].append(word)
+            if max_words != None:
+                matched[i] = matched[i][:max_words]
+        return matched

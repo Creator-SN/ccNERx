@@ -1,28 +1,18 @@
 #%%
-class A():
-    def __init__(self):
-        self.x = 0
+from ner.loaders import LLoader
 
-    def __add__(self,number):
-        self.x+=number
+args = {
+    "batch_size":4,
+    "eval_batch_size":16,
+    "test_file":"./data/test.json",
+    "eval_file":"./data/dev.json",
+    "train_file":"./data/train.json",
+    "tag_file":"./data/labels.txt",
+    "word_embedding_file":"./data/tencent/word_embedding.txt",
+    "word_vocab_file":"./data/tencent/tencent_vocab.txt",
+    "bert_vocab_file":"./data/bert/chinesewwm/vocab.txt",
+    "default_tag":"O"
+}
 
-    def inc(self):
-        self+=1
-
-a=A()
-a.inc()
-a.inc()
-a.x
-# %%
-print(1 is int)
-# %%
-a = []
-print(isinstance(a, list))
-# %%
-import numpy as np
-a = np.empty((1,3))
-s = ['1','2','3','4']
-a[:] = s[1:]
-a
-
+LLoader(**args).myData[0][4]
 # %%

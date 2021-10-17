@@ -7,7 +7,7 @@ import json
 class TrieFactory():
 
     @staticmethod
-    def get_trie_from_vocabs(vocab_files: List[str], max_line: int = None) -> Trie:
+    def get_trie_from_vocabs(vocab_files: List[str], max_line: int = -1) -> Trie:
         """build lexicon trie from vocab file
 
         Args:
@@ -20,6 +20,8 @@ class TrieFactory():
         vocabs = set()
         for file in vocab_files:
             file_lines = FileUtil.count_lines(file)
+            if max_line != -1:
+                file_lines = min(max_line, file_lines)
             for index, line in tqdm(enumerate(FileUtil.line_iter(file)), desc="load vocabs into trie", total=file_lines):
                 if max_line >= 0 and index >= max_line:
                     break
@@ -27,10 +29,11 @@ class TrieFactory():
                 word = line[0].strip()
                 vocabs.add(word)
         lexicon_tree: Trie = Trie()
-        for word in vocabs:
+        for word in tqdm(vocabs, desc="build trie"):
             lexicon_tree.insert(word)
         return lexicon_tree
 
+    @staticmethod
     def get_all_matched_word_from_dataset(dataset_files: List[str], lexicon_tree: Trie) -> List[str]:
         """Get All Matched word from dataset json file
 
@@ -52,5 +55,3 @@ class TrieFactory():
                 for word in lexicon_tree.getAllMatchedWords(sent):
                     matched_words.add(word)
         return sorted(matched_words)
-
-    
