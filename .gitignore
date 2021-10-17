@@ -3,3 +3,5 @@
 model/
 save_model/
 data/
+ner/bert/
+temp/
