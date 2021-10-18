@@ -21,6 +21,7 @@ from transformers.modeling_utils import (
 )
 
 from transformers.models.bert.modeling_bert import BertAttention, BertIntermediate, BertOutput
+from transformers.modeling_outputs import BaseModelOutputWithPooling
 from transformers import load_tf_weights_in_bert
 BertLayerNorm = torch.nn.LayerNorm
 

@@ -58,7 +58,7 @@ class LBertModel(BertPreTrainedModel):
             input_ids=args['input_ids'],
             attention_mask=args['attention_mask'],
             token_type_ids=args['token_type_ids'],
-            matched_word_embeddings=args['matched_word_embeddings'],
+            matched_word_embeddings=matched_word_embeddings,
             matched_word_mask=args['matched_word_mask']
         )
 
