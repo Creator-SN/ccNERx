@@ -4,11 +4,10 @@ from ner.crf import CRF
 
 
 class BiRnnCrf(nn.Module):
-    def __init__(self, vocab_size, tagset_size, embedding_dim, hidden_dim, num_rnn_layers=1, rnn="lstm"):
+    def __init__(self, tagset_size, embedding_dim, hidden_dim, num_rnn_layers=1, rnn="lstm"):
         super(BiRnnCrf, self).__init__()
         self.embedding_dim = embedding_dim
         self.hidden_dim = hidden_dim
-        self.vocab_size = vocab_size
         self.tagset_size = tagset_size
 
         RNN = nn.LSTM if rnn == "lstm" else nn.GRU

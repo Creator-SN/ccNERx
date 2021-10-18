@@ -54,7 +54,7 @@ class VocabEmbedding():
                 self.embedding, self.dimension = pickle.load(f)
             return self
         embedding = {}
-        if embedding_path != None:
+        if embedding_path is not None:
             embedding, self.dimension = WordEmbedding().build_from_txt(
                 embedding_path).get_embedding()
         self.embedding = np.empty([self.vocab.size, self.dimension])

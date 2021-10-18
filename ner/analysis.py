@@ -4,7 +4,7 @@ from ICCSupervised.ICCSupervised import IAnalysis
 
 class CCAnalysis(IAnalysis):
 
-    def __init__(self, data_manager):
+    def __init__(self, tag_vocab):
         self.train_record = {
             'loss': [],
             'f1': [],
@@ -21,7 +21,7 @@ class CCAnalysis(IAnalysis):
 
         self.model_record = []
 
-        self.dm = data_manager
+        self.tag_vocab = tag_vocab
     
     def append_train_record(self, train_record_item):
         for key in train_record_item:
@@ -44,7 +44,7 @@ class CCAnalysis(IAnalysis):
             insider = False
             eq_tag = False
             for j, tag in enumerate(item):
-                if tag != self.dm.tagToIdx('O') and tag != self.dm.tagToIdx('[CLS]') and tag != self.dm.tagToIdx('[SEP]'):
+                if tag != self.tag_vocab.token2id('O'):
                     if insider == False:
                         pred_num += 1
                         insider = True
@@ -65,7 +65,7 @@ class CCAnalysis(IAnalysis):
             length = item.gt(0).sum()
             t_tags = item[:length].tolist()
             for tag in t_tags:
-                if self.dm.idx_to_tag[tag].find('B-') > -1:
+                if self.tag_vocab.id2token(tag).find('B-') > -1:
                     gold_num += 1
         return gold_num
     

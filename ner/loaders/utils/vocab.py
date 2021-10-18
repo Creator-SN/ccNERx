@@ -86,7 +86,7 @@ class Vocab():
         if token in self.item2idx:
             return self.item2idx[token]
         elif self.is_word:
-            unk = f'<unk>{len(item)}'
+            unk = f'<unk>{len(token)}'
             if unk in self.item2idx:
                 return self.item2idx[unk]
             else:
@@ -96,10 +96,14 @@ class Vocab():
             raise KeyError()
 
     def __add__(self, token: str):
-        assert self.item2idx != None
-        assert self.idx2item != None
-        assert self.size != None and type(self.size) == int
+        assert self.item2idx is not None
+        assert self.idx2item is not None
+        assert self.size is not None and type(self.size) == int
         self.item2idx[token] = self.size
         self.idx2item.append(token)
         self.size += 1
         return self
+    
+    def __len__(self):
+        if self.item2idx is not None:
+            return len(self.item2idx)
