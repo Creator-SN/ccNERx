@@ -20,7 +20,8 @@ from transformers.modeling_utils import (
     prune_linear_layer,
 )
 
-from transformers import BertAttention, BertIntermediate, BertOutput, load_tf_weights_in_bert, BertModel
+from transformers.models.bert.modeling_bert import BertAttention, BertIntermediate, BertOutput
+from transformers import load_tf_weights_in_bert
 BertLayerNorm = torch.nn.LayerNorm
 
 
@@ -463,57 +464,3 @@ class WCBertModel(BertPreTrainedModel):
             hidden_states=encoder_outputs.hidden_states,
             attentions=encoder_outputs.attentions,
         )
-
-
-class WCBertCRFForTokenClassification(BertPreTrainedModel):
-    def __init__(self, config, pretrained_embeddings, num_labels):
-        super().__init__(config)
-
-        word_vocab_size = pretrained_embeddings.shape[0]
-        embed_dim = pretrained_embeddings.shape[1]
-        self.word_embeddings = nn.Embedding(word_vocab_size, embed_dim)
-        self.bert = WCBertModel(config)
-        self.dropout = nn.Dropout(config.HP_dropout)
-        self.num_labels = num_labels
-        self.hidden2tag = nn.Linear(config.hidden_size, num_labels + 2)
-        self.crf = CRF(num_labels, torch.cuda.is_available())
-
-        self.init_weights()
-
-        # init the embedding
-        self.word_embeddings.weight.data.copy_(
-            torch.from_numpy(pretrained_embeddings))
-        print("Load pretrained embedding from file.........")
-
-    def forward(
-            self,
-            input_ids=None,
-            attention_mask=None,
-            token_type_ids=None,
-            matched_word_ids=None,
-            matched_word_mask=None,
-            labels=None,
-            flag="Train"
-    ):
-        matched_word_embeddings = self.word_embeddings(matched_word_ids)
-        outputs = self.bert(
-            input_ids=input_ids,
-            attention_mask=attention_mask,
-            token_type_ids=token_type_ids,
-            matched_word_embeddings=matched_word_embeddings,
-            matched_word_mask=matched_word_mask
-        )
-
-        sequence_output = outputs[0]
-        sequence_output = self.dropout(sequence_output)
-        logits = self.hidden2tag(sequence_output)
-
-        if flag == 'Train':
-            assert labels is not None
-            loss = self.crf.neg_log_likelihood_loss(
-                logits, attention_mask, labels)
-            _, preds = self.crf._viterbi_decode(logits, attention_mask)
-            return (loss, preds)
-        elif flag == 'Predict':
-            _, preds = self.crf._viterbi_decode(logits, attention_mask)
-            return (preds,)

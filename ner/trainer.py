@@ -13,8 +13,6 @@ from ICCSupervised.ICCSupervised import ITrainer
 from ner.dataloader import AutoDataLoader
 from ner.analysis import CCAnalysis
 from ner.model import BertNER
-from utils import build_pretrained_embedding_for_corpus
-
 
 class NERTrainer(ITrainer):
 
@@ -57,6 +55,7 @@ class NERTrainer(ITrainer):
         self.eval_data = args['output_eval']
         self.num_epochs = args['num_epochs']
         self.num_gpus = args['num_gpus']
+        self.output_eval = args['output_eval']
         self.dataloader_init(**args)
         self.model_init(args['bert_config_file_name'],
                         args['pretrained_file_name'], args['hidden_dim'])
@@ -70,7 +69,7 @@ class NERTrainer(ITrainer):
     def dataloader_init(self, **args):
         self.dataloader = AutoDataLoader(**args)
         result = self.dataloader()
-        self.train_data = result['train_data']
+        self.train_data = result['train_set']
         self.train_iter = result['train_iter']
         self.vocab_embedding = result['vocab_embedding']
         self.embedding_dim = result['embedding_dim']
@@ -78,7 +77,7 @@ class NERTrainer(ITrainer):
         self.tag_size = self.tag_vocab.__len__()
         if self.output_eval is not None:
             self.eval_set = result['eval_set']
-            self.eval_loader = result['eval_loader']
+            self.eval_iter = result['eval_iter']
 
         self.analysis = CCAnalysis(self.tag_vocab)
 
@@ -119,7 +118,7 @@ class NERTrainer(ITrainer):
             train_gold_num = 0
             train_correct_num = 0
             train_loss = 0
-            train_iter = tqdm(self.dataiter)
+            train_iter = tqdm(self.train_iter)
             self.model.train()
             self.birnncrf.train()
             for it in train_iter:
@@ -177,7 +176,7 @@ class NERTrainer(ITrainer):
         test_gold_num = 0
         test_correct_num = 0
         eval_loss = 0
-        test_iter = tqdm(self.dataiter_eval)
+        test_iter = tqdm(self.eval_iter)
         self.model.eval()
         self.birnncrf.eval()
         with torch.no_grad():

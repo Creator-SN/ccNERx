@@ -40,7 +40,6 @@ class LBertModel(BertPreTrainedModel):
         embed_dim = pretrained_embeddings.shape[1]
         self.word_embeddings = nn.Embedding(word_vocab_size, embed_dim)
         self.bert = WCBertModel(config)
-        self.dropout = nn.Dropout(config.HP_dropout)
 
         self.init_weights()
 
