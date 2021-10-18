@@ -10,7 +10,7 @@ args = {
     "tag_file":"./data/labels.txt",
     "word_embedding_file":"./data/tencent/word_embedding.txt",
     "word_vocab_file":"./data/tencent/tencent_vocab.txt",
-    "bert_vocab_file":"./data/bert/chinesewwm/vocab.txt",
+    "bert_vocab_file":"./data/bert/basechinese/vocab.txt",
     "default_tag":"O"
 }
 

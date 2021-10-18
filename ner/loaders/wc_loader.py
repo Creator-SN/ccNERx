@@ -112,6 +112,9 @@ class LBertDataSet(Dataset):
                 data["label"][:self.max_seq_length-2] + [self.default_tag]
             token_ids = self.tokenizer.convert_tokens_to_ids(text)
             label_ids = self.label_vocab.token2id(label)
+
+            labels = np.zeros(self.max_seq_length, dtype=np.int)
+            labels[:len(label_ids)] = label_ids
             # init input
             input_token_ids = np.zeros(self.max_seq_length, dtype=np.int)
             input_token_ids[:len(token_ids)] = token_ids
@@ -131,12 +134,19 @@ class LBertDataSet(Dataset):
                 matched_word_ids[i][:len(word_ids)] = word_ids
                 matched_word_mask[i][:len(word_ids)] = 1
 
+            assert input_token_ids.shape[0] == segment_ids.shape[0]
+            assert input_token_ids.shape[0] == attention_mask.shape[0]
+            assert input_token_ids.shape[0] == matched_word_ids.shape[0]
+            assert input_token_ids.shape[0] == matched_word_mask.shape[0]
+            assert input_token_ids.shape[0] == labels.shape[0]
+            assert matched_word_ids.shape[1] == matched_word_mask.shape[1]
+
             self.input_token_ids.append(input_token_ids)
             self.segment_ids.append(segment_ids)
             self.attention_mask.append(attention_mask)
             self.matched_word_ids.append(matched_word_ids)
             self.matched_word_mask.append(matched_word_mask)
-            self.labels.append(label_ids)
+            self.labels.append(labels)
         self.size = len(self.input_token_ids)
         self.input_token_ids = np.array(self.input_token_ids)
         self.segment_ids = np.array(self.segment_ids)
