@@ -21,7 +21,7 @@ from transformers.modeling_utils import (
 )
 
 from transformers.models.bert.modeling_bert import BertAttention, BertIntermediate, BertOutput
-from transformers.modeling_outputs import BaseModelOutputWithPooling
+from transformers.modeling_outputs import BaseModelOutputWithPooling, BaseModelOutputWithPast
 from transformers import load_tf_weights_in_bert
 BertLayerNorm = torch.nn.LayerNorm
 
@@ -279,8 +279,16 @@ class BertEncoder(nn.Module):
 
         if output_hidden_states:
             all_hidden_states = all_hidden_states + (hidden_states,)
-
-        return tuple(v for v in [hidden_states, all_hidden_states, all_attentions] if v is not None)
+        
+        if not return_dict:
+            return tuple(v for v in [hidden_states, all_hidden_states, all_attentions] if v is not None)
+        
+        return BaseModelOutputWithPast(
+            last_hidden_state=hidden_states,
+            past_key_values=None,
+            hidden_states=all_hidden_states,
+            attentions=all_attentions
+        )
 
 
 class BertPooler(nn.Module):

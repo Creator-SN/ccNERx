@@ -19,7 +19,7 @@ args = {
     "word_embedding_file":"./data/tencent/word_embedding.txt",
     "word_vocab_file":"./data/tencent/tencent_vocab.txt",
     "default_tag":"O",
-    'batch_size': 150,
+    'batch_size': 64,
     'eval_batch_size': 64,
     'task_name': 'weibo'
 }
