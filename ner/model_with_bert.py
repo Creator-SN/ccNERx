@@ -11,7 +11,7 @@ class BiRnnCrf(nn.Module):
         self.tagset_size = tagset_size
 
         RNN = nn.LSTM if rnn == "lstm" else nn.GRU
-        self.rnn = RNN(embedding_dim, hidden_dim // 2, num_layers=num_rnn_layers,
+        self.rnn = RNN(self.embedding_dim, hidden_dim // 2, num_layers=num_rnn_layers,
                        bidirectional=True, batch_first=True)
         self.crf = CRF(hidden_dim, self.tagset_size)
 

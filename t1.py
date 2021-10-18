@@ -4,24 +4,25 @@ from ner.trainer import NERTrainer
 
 # %%
 args = {
-    'num_epochs': 10,
+    'num_epochs': 30,
     'num_gpus': [0, 1, 2, 3],
     'bert_config_file_name': './model/chinese_wwm_ext/bert_config.json',
     'pretrained_file_name': './model/chinese_wwm_ext/pytorch_model.bin',
-    'hidden_dim': 150,
-    'train_file': './data/weibo/train.json',
-    'eval_file': './data/weibo/dev.json',
-    'test_file': './data/weibo/test.json',
+    'hidden_dim': 300,
+    'max_seq_length': 100,
+    'train_file': './data/weibo_simple/train.json',
+    'eval_file': './data/weibo_simple/dev.json',
+    'test_file': './data/weibo_simple/test.json',
     'bert_vocab_file': './model/chinese_wwm_ext/vocab.txt',
-    'tag_file': './data/weibo/labels.txt',
+    'tag_file': './data/weibo_simple/labels.txt',
     'output_eval': True,
     'loader_name': 'l_loader',
     "word_embedding_file":"./data/tencent/word_embedding.txt",
     "word_vocab_file":"./data/tencent/tencent_vocab.txt",
     "default_tag":"O",
-    'batch_size': 64,
+    'batch_size': 32,
     'eval_batch_size': 64,
-    'task_name': 'weibo'
+    'task_name': 'weibo_simple'
 }
 trainer = NERTrainer(**args)
 

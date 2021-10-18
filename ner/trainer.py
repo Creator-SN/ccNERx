@@ -126,7 +126,7 @@ class NERTrainer(ITrainer):
                     it[key] = self.cuda(it[key])
 
                 outputs = self.model(**it)
-                hidden_states = outputs[0]
+                hidden_states = outputs['mix_output']
                 loss = self.birnncrf.loss(hidden_states, it['input_ids'].gt(0), it['labels'])
                 loss = loss.mean()
 
@@ -185,7 +185,7 @@ class NERTrainer(ITrainer):
                     it[key] = self.cuda(it[key])
 
                 outputs = self.model(**it)
-                hidden_states = outputs[0]
+                hidden_states = outputs['mix_output']
                 loss = self.birnncrf.loss(hidden_states, it['input_ids'].gt(0), it['labels'])
                 loss = loss.mean()
 
