@@ -1,23 +1,32 @@
 # %%
-from trainer import NERTrainer
+from ner.predicter import NERPredict
+from ner.trainer import NERTrainer
 
 # %%
-trainer = NERTrainer(10, [0, 1, 2, 3],
-                     bert_config_file_name='./model/chinese_wwm_ext/bert_config.json',
-                     pretrained_file_name='./model/chinese_wwm_ext/pytorch_model.bin',
-                     hidden_dim=150,
-                     train_file_name='./data/news/train.txt',
-                     vocab_file_name='./model/chinese_wwm_ext/vocab.txt',
-                     tags_file_name='./data/news_tags_list.txt',
-                     eval_file_name='./data/news/test.txt',
-                     batch_size=300,
-                     eval_batch_size=64)
+args = {
+    'num_epochs': 10,
+    'num_gpus': [0, 1, 2, 3],
+    'bert_config_file_name': './model/chinese_wwm_ext/bert_config.json',
+    'pretrained_file_name': './model/chinese_wwm_ext/pytorch_model.bin',
+    'hidden_dim': 150,
+    'train_file': './data/weibo/train.json',
+    'eval_file': './data/weibo/dev.json',
+    'test_file': './data/weibo/test.json',
+    'bert_vocab_file': './model/chinese_wwm_ext/vocab.txt',
+    'tag_file': './data/weibo/labels.txt',
+    'output_eval': True,
+    'loader_name': 'l_loader',
+    "word_embedding_file":"./data/tencent/word_embedding.txt",
+    "word_vocab_file":"./data/tencent/tencent_vocab.txt",
+    "default_tag":"O",
+    'batch_size': 300,
+    'eval_batch_size': 64,
+    'task_name': 'weibo'
+}
+trainer = NERTrainer(**args)
 
 for i in trainer():
     a = i
-
-# %%
-from predicter import NERPredict
 
 # %%
 predict = NERPredict(True,
@@ -29,7 +38,8 @@ predict = NERPredict(True,
                      hidden_dim=150)
 
 # %%
-print(predict(["坐落于福州的福州大学ACM研究生团队, 在帅气幽默的傅仰耿老师带领下, 正在紧张刺激的开发一套全新的神秘系统。","在福州大学的后山, 驻扎着福大后山协会, 会长是陈学勤同志。"])[2:])
+print(predict(["坐落于福州的福州大学ACM研究生团队, 在帅气幽默的傅仰耿老师带领下, 正在紧张刺激的开发一套全新的神秘系统。",
+      "在福州大学的后山, 驻扎着福大后山协会, 会长是陈学勤同志。"])[2:])
 
 
 # %%

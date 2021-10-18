@@ -1,7 +1,7 @@
 from ner.loaders.utils import *
 from torch.utils.data import TensorDataset, DataLoader, Dataset
 from torch import tensor
-from transformers.tokenization_bert import BertTokenizer
+from transformers import BertTokenizer
 from tqdm import *
 from typing import *
 from ICCSupervised.ICCSupervised import IDataLoader
@@ -60,7 +60,7 @@ class LLoader(IDataLoader):
         self.tag_vocab: Vocab = Vocab().from_files(
             [args["tag_file"]], is_word=False)
 
-        self.vocab_embedding, self.embeding_dim = VocabEmbedding(self.word_vocab).build_from_file(
+        self.vocab_embedding, self.embedding_dim = VocabEmbedding(self.word_vocab).build_from_file(
             args["word_embedding_file"], self.max_scan, self.add_seq_vocab).get_embedding()
 
         self.tokenizer = BertTokenizer.from_pretrained(args["bert_vocab_file"])
@@ -69,16 +69,38 @@ class LLoader(IDataLoader):
         pass
 
     def process_data(self, batch_size: int, eval_batch_size: int = None):
-        assert batch_size != None, "argument batch_size: required"
+        assert batch_size is not None, "argument batch_size: required"
         self.myData = LBertDataSet(self.data_files[0], self.tokenizer, self.lexicon_tree, self.word_vocab,
                                    self.tag_vocab, self.max_word_num, self.max_seq_length, self.default_tag)
         self.dataiter = DataLoader(self.myData, batch_size=batch_size)
         if self.output_eval:
-            assert eval_batch_size != None, "argument eval_batch_size: required"
+            assert eval_batch_size is not None, "argument eval_batch_size: required"
             self.myData_eval = LBertDataSet(self.data_files[1], self.tokenizer, self.lexicon_tree, self.word_vocab,
                                             self.tag_vocab, self.max_word_num,  self.max_seq_length, self.default_tag)
             self.dataiter_eval = DataLoader(
                 self.myData_eval, batch_size=eval_batch_size)
+
+    def __call__(self):
+        if self.output_eval:
+            return {
+                'train_set': self.myData,
+                'train_iter': self.dataiter,
+                'eval_set': self.myData_eval,
+                'eval_iter': self.dataiter_eval,
+                'vocab_embedding': self.vocab_embedding,
+                'embedding_dim': self.embedding_dim,
+                'word_vocab': self.word_vocab,
+                'tag_vocab': self.tag_vocab
+            }
+        else:
+            return {
+                'train_set': self.myData,
+                'train_iter': self.dataiter,
+                'vocab_embedding': self.vocab_embedding,
+                'embedding_dim': self.embedding_dim,
+                'word_vocab': self.word_vocab,
+                'tag_vocab': self.tag_vocab
+            }
 
 
 class LBertDataSet(Dataset):
@@ -160,7 +182,14 @@ class LBertDataSet(Dataset):
 
     def __getitem__(self, idx):
         idx = self.indexes[idx]
-        return (tensor(self.input_token_ids[idx]), tensor(self.segment_ids[idx]), tensor(self.attention_mask[idx]), tensor(self.matched_word_ids[idx]), tensor(self.matched_word_mask[idx]), tensor(self.labels[idx]))
+        return {
+            'input_ids': tensor(self.input_token_ids[idx]),
+            'attention_mask': tensor(self.attention_mask[idx]),
+            'token_type_ids': tensor(self.segment_ids[idx]),
+            'matched_word_ids': tensor(self.matched_word_ids[idx]),
+            'matched_word_mask': tensor(self.matched_word_mask[idx]),
+            'labels': tensor(self.labels[idx])
+        }
 
-    def __len__(self, idx):
+    def __len__(self):
         return self.size

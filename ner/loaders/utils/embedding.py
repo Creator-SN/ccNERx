@@ -47,6 +47,8 @@ class VocabEmbedding():
         self.dimension: int = 200
 
     def build_from_file(self, embedding_path: str, max_scan_num: int = 1000000, add_seg_vocab: bool = False):
+        if not os.path.exists(self.cache_dir):
+            os.makedirs(self.cache_dir)
         cache_path = os.path.join(
             self.cache_dir, f"save_word_embedding_{max_scan_num}.pkl")
         if os.path.exists(cache_path):
@@ -54,7 +56,7 @@ class VocabEmbedding():
                 self.embedding, self.dimension = pickle.load(f)
             return self
         embedding = {}
-        if embedding_path != None:
+        if embedding_path is not None:
             embedding, self.dimension = WordEmbedding().build_from_txt(
                 embedding_path).get_embedding()
         self.embedding = np.empty([self.vocab.size, self.dimension])

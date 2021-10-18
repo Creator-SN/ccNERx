@@ -7,7 +7,7 @@ from torch.utils.data import TensorDataset, DataLoader, Dataset
 
 class CNDataLoader(IDataLoader):
     def __init__(self, train_file_name, vocab_file_name, tags_file_name, word_tag_split=' ', eval_file_name=None, pattern='， O', padding_length=50, batch_size=32, eval_batch_size=None):
-        if eval_file_name != None:
+        if eval_file_name is not None:
             self.output_eval = True
         else:
             self.output_eval = False
@@ -32,7 +32,7 @@ class CNDataLoader(IDataLoader):
     '''
     def read_data_set(self, train_file_name, eval_file_name=None, word_tag_split=' ', pattern='， O'):
         self.train_set, self.train_tags = BERTDataManager.ReadDataExtremely(train_file_name, word_tag_split, pattern)
-        if eval_file_name != None:
+        if eval_file_name is not None:
             self.eval_set, self.eval_tags = BERTDataManager.ReadDataExtremely(eval_file_name, word_tag_split, pattern)
     
     '''
@@ -52,7 +52,7 @@ class CNDataLoader(IDataLoader):
     处理数据
     '''
     def process_data(self, padding_length, batch_size, eval_batch_size):
-        eval_batch_size = batch_size if eval_batch_size == None else eval_batch_size
+        eval_batch_size = batch_size if eval_batch_size is None else eval_batch_size
         self.myData = BERTNERDataset(self.train_set, self.train_tags, self.dm, padding_length)
         self.dataiter = DataLoader(self.myData, batch_size=batch_size)
         if self.output_eval:

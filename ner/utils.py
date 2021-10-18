@@ -4,7 +4,7 @@ import random
 class DataManager():
 
     def __init__(self, tags_list, vocab_file_name=None, sentences=None, pad_tag='[PAD]'):
-        if vocab_file_name != None:
+        if vocab_file_name is not None:
             self.word_to_idx, self.idx_to_word = self.WordIdxFromVocabInit(vocab_file_name)
         else:
             self.word_to_idx, self.idx_to_word = self.WordIdxInit(sentences, pad_tag)

@@ -55,7 +55,7 @@ class Trie():
         ptr: TrieNode = self.root
         for letter in word:
             ptr = ptr.children.get(letter)
-            if ptr == None:
+            if ptr is None:
                 return False
         return ptr.is_word
 
@@ -75,7 +75,7 @@ class Trie():
             if i > self.max_depth:
                 break
             ptr = ptr.children.get(letter)
-            if ptr == None:
+            if ptr is None:
                 break
             if i >= self.min_len and ptr.is_word:
                 matched.append(space.join(sent[:i+1]))
@@ -104,7 +104,7 @@ class Trie():
         for i in range(len(sent)):
             sub_sent = sent[i:]
             words = self.enumerateMatch(sub_sent)
-            if max_words != None:
+            if max_words is not None:
                 words = words[:max_words]
             for word in words:
                 for j in range(i+1, i+len(word)):
@@ -112,6 +112,6 @@ class Trie():
                 if len(matched[i]) > 0 and len(word) == 1:
                     continue
                 matched[i].append(word)
-            if max_words != None:
+            if max_words is not None:
                 matched[i] = matched[i][:max_words]
         return matched

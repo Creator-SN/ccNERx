@@ -98,8 +98,12 @@ class Vocab():
     def __add__(self, token: str):
         assert self.item2idx is not None
         assert self.idx2item is not None
-        assert self.size != None and type(self.size) == int
+        assert self.size is not None and type(self.size) == int
         self.item2idx[token] = self.size
         self.idx2item.append(token)
         self.size += 1
         return self
+    
+    def __len__(self):
+        if self.item2idx is not None:
+            return len(self.item2idx)
