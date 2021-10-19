@@ -7,9 +7,10 @@ args = {
     'num_epochs': 30,
     'num_gpus': [0, 1, 2, 3],
     'bert_config_file_name': './model/chinese_wwm_ext/bert_config.json',
-    'pretrained_file_name': './model/chinese_wwm_ext/pytorch_model.bin',
+    'pretrained_file_name': './model/weibo/pytorch_model.bin',
     'hidden_dim': 300,
-    'max_seq_length': 100,
+    'max_seq_length': 150,
+    'max_scan': 1500000,
     'train_file': './data/weibo_simple/train.json',
     'eval_file': './data/weibo_simple/dev.json',
     'test_file': './data/weibo_simple/test.json',
@@ -20,7 +21,7 @@ args = {
     "word_embedding_file":"./data/tencent/word_embedding.txt",
     "word_vocab_file":"./data/tencent/tencent_vocab.txt",
     "default_tag":"O",
-    'batch_size': 32,
+    'batch_size': 8,
     'eval_batch_size': 64,
     'task_name': 'weibo_simple'
 }
