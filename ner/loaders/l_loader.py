@@ -141,9 +141,9 @@ class LBertDataSet(Dataset):
             input_token_ids = np.zeros(self.max_seq_length, dtype=np.int)
             input_token_ids[:len(token_ids)] = token_ids
             segment_ids = np.ones(self.max_seq_length, dtype=np.int)
-            segment_ids[:len(token_ids)] = 1
+            segment_ids[:len(token_ids)] = 0
             attention_mask = np.zeros(self.max_seq_length, dtype=np.int)
-            attention_mask[:len(token_ids)] = 0
+            attention_mask[:len(token_ids)] = 1
             matched_word_ids = np.zeros(
                 (self.max_seq_length, self.max_word_num), dtype=np.int)
             matched_word_mask = np.zeros(
