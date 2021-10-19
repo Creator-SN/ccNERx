@@ -9,7 +9,7 @@
     - model_with_bert.py
     - model.py
     - predicter.py
-    - trainer.py
+    - traiCC.py
     - utils.py
 
 ## Requirements

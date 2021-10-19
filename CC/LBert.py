@@ -11,7 +11,7 @@ import torch.utils.checkpoint
 from torch import nn
 
 from transformers import BertConfig
-from ner.crf import CRF
+from CC.crf import CRF
 
 from transformers.modeling_utils import (
     PreTrainedModel,

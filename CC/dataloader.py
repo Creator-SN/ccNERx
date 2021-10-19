@@ -1,11 +1,11 @@
 import re
 import torch
-from ner.utils import DataManager
+from CC.utils import DataManager
 from torch.autograd import Variable
 from ICCSupervised.ICCSupervised import IDataLoader
 from torch.utils.data import TensorDataset, DataLoader, Dataset
-from ner.loaders.cn_loader import CNDataLoader
-from ner.loaders.l_loader import LLoader
+from CC.loaders.cn_loader import CNDataLoader
+from CC.loaders.l_loader import LLoader
 
 class AutoDataLoader(IDataLoader):
     def __init__(self, **args):

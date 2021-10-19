@@ -1,5 +1,5 @@
 #%%
-from ner.loaders import LLoader
+from CC.loaders import LLoader
 
 args = {
     "batch_size":4,

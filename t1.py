@@ -1,7 +1,7 @@
 # %%
 import json
-from ner.predicter import NERPredict
-from ner.trainer import NERTrainer
+from CC.predicter import NERPredict
+from CC.trainer import NERTrainer
 
 # %%
 args = {
@@ -24,6 +24,7 @@ args = {
     "default_tag":"O",
     'batch_size': 8,
     'eval_batch_size': 64,
+    'model_name': 'LBert',
     'task_name': 'weibo'
 }
 trainer = NERTrainer(**args)

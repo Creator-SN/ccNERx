@@ -1,5 +1,5 @@
 from typing import List
-from ner.loaders.utils import *
+from CC.loaders.utils import *
 from tqdm import *
 import json
 

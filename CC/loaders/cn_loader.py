@@ -1,6 +1,6 @@
 import re
 import torch
-from ner.utils import DataManager
+from CC.utils import DataManager
 from torch.autograd import Variable
 from ICCSupervised.ICCSupervised import IDataLoader
 from torch.utils.data import TensorDataset, DataLoader, Dataset
@@ -53,10 +53,10 @@ class CNDataLoader(IDataLoader):
     '''
     def process_data(self, padding_length, batch_size, eval_batch_size):
         eval_batch_size = batch_size if eval_batch_size is None else eval_batch_size
-        self.myData = BERTNERDataset(self.train_set, self.train_tags, self.dm, padding_length)
+        self.myData = CCNERDataset(self.train_set, self.train_tags, self.dm, padding_length)
         self.dataiter = DataLoader(self.myData, batch_size=batch_size)
         if self.output_eval:
-            self.myData_eval = BERTNERDataset(self.eval_set, self.eval_tags, self.dm, padding_length)
+            self.myData_eval = CCNERDataset(self.eval_set, self.eval_tags, self.dm, padding_length)
             self.dataiter_eval = DataLoader(self.myData_eval, batch_size=eval_batch_size)
             
     
@@ -65,7 +65,7 @@ class CNDataLoader(IDataLoader):
             return [(self.myData, self.dataiter, self.dm), (self.myData_eval, self.dataiter_eval)]
         return [(self.myData, self.dataiter, self.dm)]
 
-class BERTNERDataset(Dataset):
+class CCNERDataset(Dataset):
     def __init__(self, sentences_list, tags_list, data_manager, padding_length=100):
         self.sentences, self.tags_list = sentences_list, tags_list
         self.data_manager = data_manager

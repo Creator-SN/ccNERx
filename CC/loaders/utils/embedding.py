@@ -1,4 +1,4 @@
-from ner.loaders.utils import *
+from CC.loaders.utils import *
 import numpy as np
 from tqdm import *
 import os

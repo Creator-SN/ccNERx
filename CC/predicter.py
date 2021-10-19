@@ -5,14 +5,12 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.autograd import Variable
 from transformers import BertConfig, BertTokenizer, BertModel
-from ner.crf import CRF
-from ner.model_with_bert import BiRnnCrf
+from CC.crf import CRF
 from tqdm import tqdm
 from ICCSupervised.ICCSupervised import IPredict
-from ner.dataloader import AutoDataLoader
-from ner.analysis import CCAnalysis
-from ner.model import BertNER
-from ner.loaders.cn_loader import BERTDataManager
+from CC.dataloader import AutoDataLoader
+from CC.analysis import CCAnalysis
+from CC.loaders.cn_loader import BERTDataManager
 
 
 class NERPredict(IPredict):

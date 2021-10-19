@@ -1,5 +1,5 @@
 # %%
-from ner.trainer import NERTrainer
+from CC.trainer import NERTrainer
 
 # %%
 trainer = NERTrainer(10, [0, 1, 2, 3],
@@ -20,7 +20,7 @@ for i in trainer():
     a = i
 
 # %%
-from ner.predicter import NERPredict
+from CC.predicter import NERPredict
 
 # %%
 predict = NERPredict(True,

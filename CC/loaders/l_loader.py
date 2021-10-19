@@ -1,4 +1,4 @@
-from ner.loaders.utils import *
+from CC.loaders.utils import *
 from torch.utils.data import TensorDataset, DataLoader, Dataset
 from torch import tensor
 from transformers import BertTokenizer
