@@ -29,8 +29,8 @@ class LLoader(IDataLoader):
         if "output_eval" in args:
             self.output_eval = args["output_eval"]
         self.max_scan: int = 1000000
-        if "max_scan" in args:
-            self.max_scan = args["max_scan"]
+        if "max_scan_num" in args:
+            self.max_scan = int(args["max_scan_num"])
         self.add_seq_vocab: bool = False
         if "add_seq_vocab" in args:
             self.add_seq_vocab = args["add_seq_vocab"]
