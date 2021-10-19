@@ -28,6 +28,9 @@ class DataManager():
         except:
             return 0
     
+    def idxToTag(self, idx):
+        return self.idx_to_tag[idx]
+    
     def encode(self, sentence, tags, pad_tag='[PAD]', padding_length=100):
         sentence, tags = self.padding_train(sentence, tags, pad_tag, padding_length)
         sentence = [self.wordToIdx(word) for word in sentence]

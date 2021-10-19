@@ -1,7 +1,7 @@
 from re import A
 import torch
 import torch.nn as nn
-from transformers import BertConfig
+from transformers import BertConfig, BertModel
 from CC.LBert import WCBertModel, BertPreTrainedModel
 from CC.crf import CRF
 from CC.birnncrf import BiRnnCrf
@@ -35,6 +35,9 @@ class CCNERModel(IModel):
         elif self.model_name == 'LBertFusion':
             self.model = LBertModelFusion.from_pretrained(
             self.pretrained_file_name, pretrained_embeddings=self.pretrained_embeddings, config=config)
+        elif self.model_name == 'Bert':
+            self.model = BertBaseModel.from_pretrained(
+            self.pretrained_file_name, config=config)
         self.birnncrf = BiRnnCrf(
             tagset_size=self.tagset_size, embedding_dim=config.hidden_size, hidden_dim=self.hidden_dim)
 
@@ -43,6 +46,27 @@ class CCNERModel(IModel):
 
     def __call__(self):
         return self.get_model()
+
+class BertBaseModel(BertPreTrainedModel):
+    def __init__(self, config):
+        super().__init__(config)
+        self.bert = BertModel(config)
+
+        self.init_weights()
+    
+    def forward(self, **args):
+        input = {
+            'input_ids': args['input_ids'],
+            'attention_mask': args['attention_mask']
+        }
+        outputs = self.bert(**input)
+        return {
+            'mix_output': outputs.last_hidden_state,
+            'last_hidden_state': outputs.last_hidden_state,
+            'pooler_output': outputs.pooler_output,
+            'hidden_states': outputs.hidden_states,
+            'attentions': outputs.attentions,
+        }
 
 
 class LBertModel(BertPreTrainedModel):

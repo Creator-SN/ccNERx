@@ -18,61 +18,63 @@ class NERTrainer(ITrainer):
 
     def __init__(self, **args):
         '''
-        args:
-        num_epochs
-        num_gpus
-        bert_config_file_name
-        pretrained_file_name
-        hidden_dim
-        word_embedding_file
-        word_vocab_file
-        train_file
-        eval_file
-        test_file
-        tag_file
-        bert_vocab_file
-        batch_size
-        eval_batch_size
-        output_eval: optional, default: None
-        max_scan: optional, default: None
-        add_seq_vocab: optional, default: False
-        max_seq_length: optional, default: 256
-        max_word_num: optional, default: 5
-        default_tag: optional, default: "O"
-        task_name: optional, default: None
+        Args:
+        - num_epochs
+        - num_gpus
+        - bert_config_file_name
+        - pretrained_file_name
+        - hidden_dim
+        - word_embedding_file: required in `l_loader`
+        - word_vocab_file: required in `l_loader`
+        - train_file
+        - eval_file
+        - test_file
+        - tag_file
+        - bert_vocab_file
+        - batch_size
+        - eval_batch_size
+        - word_tag_split: optional in `cn_loader`, default: ' '
+        - pattern: optional in `cn_loader`, default: '， O'
+        - output_eval: optional, default: None
+        - max_scan: optional in `l_loader`, default: None
+        - add_seq_vocab: optional in `l_loader`, default: False
+        - max_seq_length: optional in `l_loader`, default: 256
+        - max_word_num: optional in `l_loader`, default: 5
+        - default_tag: optional in `l_loader`, default: "O"
+        - model_name: optional, default: "LBert"
+        - loader_name: optional, default: "l_loader"
+        - task_name: optional, default: None
         '''
         assert "num_epochs" in args, "argument num_epochs: required embeding file path"
         assert "num_gpus" in args, "argument num_gpus: required embeding file path"
         assert "hidden_dim" in args, "argument hidden_dim: required embeding file path"
-        assert "word_embedding_file" in args, "argument word_embedding_file: required embeding file path"
-        assert "word_vocab_file" in args, "argument word_vocab_file: required word vocab file to build lexicon tree"
-        assert "train_file" in args, "argument train_file: required train file path"
-        assert "eval_file" in args, "argument eval_file: required eval file path"
-        assert "test_file" in args, "argument test_file: required test file path"
-        assert "tag_file" in args, "argument tag_file: required label file path"
-        assert "bert_vocab_file" in args, "argument bert_vocab_file: required bert_vocab file path"
         self.model_name: str = 'LBert'
         if "model_name" in args:
             self.model_name = args["model_name"]
+        self.loader_name = 'l_loader'
+        if "loader_name" in args:
+            self.loader_name = args["loader_name"]
 
         self.eval_data = args['output_eval']
         self.num_epochs = args['num_epochs']
         self.num_gpus = args['num_gpus']
         self.output_eval = args['output_eval']
         self.dataloader_init(**args)
-        self.model_init(args['bert_config_file_name'],
-                        args['pretrained_file_name'], args['hidden_dim'])
+        self.model_init(**args)
         self.task_name = args['task_name']
 
-    def model_init(self, bert_config_file_name, pretrained_file_name, hidden_dim):
+    def model_init(self, **args):
         model_args = {
             'model_name': self.model_name,
-            'pretrained_embeddings': self.vocab_embedding,
-            'bert_config_file_name': bert_config_file_name,
-            'pretrained_file_name': pretrained_file_name,
+            'bert_config_file_name': args['bert_config_file_name'],
             'tagset_size': self.tag_size,
-            'hidden_dim': hidden_dim
+            'hidden_dim': args['hidden_dim']
         }
+        if 'word_embedding_file' in args:
+            model_args['pretrained_embeddings'] = self.vocab_embedding
+        if 'pretrained_file_name' in args:
+            model_args['pretrained_file_name'] = args['pretrained_file_name']
+
         self.bert_ner = CCNERModel(**model_args)
         self.model, self.birnncrf = self.bert_ner()
 
@@ -81,15 +83,21 @@ class NERTrainer(ITrainer):
         result = self.dataloader()
         self.train_data = result['train_set']
         self.train_iter = result['train_iter']
-        self.vocab_embedding = result['vocab_embedding']
-        self.embedding_dim = result['embedding_dim']
-        self.tag_vocab = result['tag_vocab']
-        self.tag_size = self.tag_vocab.__len__()
+        if self.loader_name == 'l_loader':
+            self.vocab_embedding = result['vocab_embedding']
+            self.embedding_dim = result['embedding_dim']
+            self.tag_vocab = result['tag_vocab']
+            self.tag_size = self.tag_vocab.__len__()
+            self.analysis = CCAnalysis(
+                self.tag_vocab.token2id, self.tag_vocab.id2token)
+        if self.loader_name == 'cn_loader':
+            self.dm = result['dm']
+            self.tag_size = len(self.dm.tag_to_idx)
+            self.analysis = CCAnalysis(self.dm.tagToIdx, self.dm.idxToTag)
+
         if self.output_eval is not None:
             self.eval_set = result['eval_set']
             self.eval_iter = result['eval_iter']
-
-        self.analysis = CCAnalysis(self.tag_vocab)
 
     def train(self, resume_path=False, resume_step=False):
         alpha = 1e-10

@@ -9,18 +9,8 @@ from CC.loaders.l_loader import LLoader
 
 class AutoDataLoader(IDataLoader):
     def __init__(self, **args):
-        assert "word_embedding_file" in args, "argument word_embedding_file: required embeding file path"
-        assert "word_vocab_file" in args, "argument word_vocab_file: required word vocab file to build lexicon tree"
-        assert "train_file" in args, "argument train_file: required train file path"
-        # assert "eval_file" in args, "argument eval_file: required eval file path"
-        assert "test_file" in args, "argument test_file: required test file path"
-        assert "tag_file" in args, "argument tag_file: required label file path"
-        assert "loader_name" in args, "argument loader_name: required loader_name file path"
+        assert "loader_name" in args, "argument loader_name: required loader_name"
         self.loader_name = args['loader_name']
-        if 'eval_file' not in args:
-            self.output_eval = True
-        else:
-            self.output_eval = False
         dataloaders = {
             'cn_loader': CNDataLoader,
             'l_loader': LLoader
