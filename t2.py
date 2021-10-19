@@ -11,7 +11,8 @@ args = {
     "word_embedding_file":"./data/tencent/word_embedding.txt",
     "word_vocab_file":"./data/tencent/tencent_vocab.txt",
     "bert_vocab_file":"./data/bert/basechinese/vocab.txt",
-    "default_tag":"O"
+    "default_tag":"O",
+    "max_scan_num": 1500000
 }
 
 LLoader(**args).myData[0][4]
