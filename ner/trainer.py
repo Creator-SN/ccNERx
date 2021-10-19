@@ -85,7 +85,7 @@ class NERTrainer(ITrainer):
         alpha = 1e-10
 
         optimizer = optim.AdamW([
-            {'params': self.model.parameters(), 'lr': 1e-5},
+            {'params': self.model.parameters(), 'lr': 2e-5},
             {'params': self.birnncrf.parameters(), 'lr': 1e-3}
         ], lr=1e-5, weight_decay=0.)
         scheduler = get_linear_schedule_with_warmup(optimizer, 190, 80000)

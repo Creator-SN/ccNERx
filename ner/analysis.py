@@ -38,9 +38,7 @@ class CCAnalysis(IAnalysis):
         pred_num = 0
         correct_num = 0
         for i, item in enumerate(pred):
-            length = tags[i].gt(0).sum()
-            item = item[:length]
-            t_tags = tags[i][:length].tolist()
+            t_tags = tags[i].tolist()
             insider = False
             eq_tag = False
             for j, tag in enumerate(item):
@@ -62,10 +60,11 @@ class CCAnalysis(IAnalysis):
     def getRecall(self, tags):
         gold_num = 0
         for i, item in enumerate(tags):
-            length = item.gt(0).sum()
-            t_tags = item[:length].tolist()
+            t_tags = item.tolist()
             for tag in t_tags:
                 if self.tag_vocab.id2token(tag).find('B-') > -1:
+                    gold_num += 1
+                elif self.tag_vocab.id2token(tag).find('S-') > -1:
                     gold_num += 1
         return gold_num
     
