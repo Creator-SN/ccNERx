@@ -66,7 +66,9 @@ class Vocab():
             str: token or token list
         """
         if isinstance(id, list):
-            return [self.idx2item[index] for index in id]
+            return [self.id2token(index) for index in id]
+        if id >= len(self.idx2item):
+            raise ValueError("id out of range")
         return self.idx2item[id]
 
     def token2id(self, token: str):
@@ -103,7 +105,8 @@ class Vocab():
         self.idx2item.append(token)
         self.size += 1
         return self
-    
+
     def __len__(self):
-        if self.item2idx is not None:
-            return len(self.item2idx)
+        if self.idx2item is not None:
+            return len(self.idx2item)
+        raise ValueError("idx2item is None")

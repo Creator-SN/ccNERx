@@ -11,12 +11,12 @@ args = {
     'pretrained_file_name': './model/chinese_wwm_ext/pytorch_model.bin',
     'hidden_dim': 300,
     'max_seq_length': 150,
-    'max_scan_num': 1000000,
-    'train_file': './data/weibo/train.json',
-    'eval_file': './data/weibo/dev.json',
-    'test_file': './data/weibo/test.json',
+    'max_scan_num': 1500000,
+    'train_file': './data/chinese_data/pre_train.json',
+    'eval_file': './data/chinese_data/pre_dev.json',
+    'test_file': './data/chinese_data/pre_test.json',
     'bert_vocab_file': './model/chinese_wwm_ext/vocab.txt',
-    'tag_file': './data/weibo/labels.txt',
+    'tag_file': './data/chinese_data/tags_list.txt',
     'output_eval': True,
     'loader_name': 'le_loader',
     "word_embedding_file":"./data/tencent/word_embedding.txt",
@@ -25,12 +25,13 @@ args = {
     'batch_size': 8,
     'eval_batch_size': 64,
     'model_name': 'LEBert',
-    'task_name': 'weibo'
+    'task_name': 'chinese_data'
 }
 trainer = NERTrainer(**args)
 
 for i in trainer(lr2=1e-2):
     a = i
+
 
 # %%
 # predict = NERPredict(True,

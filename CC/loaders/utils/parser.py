@@ -55,7 +55,7 @@ class KwargsParser():
             self.kv[argName] = getattr(instance, argName)
         if self.debug:
             print(f"kwargs parser: {json.dumps(self.kv,indent=4)}")
-        return instance
+        return self
 
     def parse_dict(self, **kwargs):
         self.kv = {}
