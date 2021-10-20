@@ -28,7 +28,7 @@ class LLoader(IDataLoader):
             .add_argument("add_seq_vocab", bool, defaultValue=False) \
             .add_argument("max_seq_length", int, defaultValue=256) \
             .add_argument("max_word_num", int, defaultValue=5) \
-            .add_argument("deafult_tag", str, defaultValue="O") \
+            .add_argument("default_tag", str, defaultValue="O") \
             .add_argument("use_test", bool, defaultValue=False) \
             .parse(self, **args)
 
