@@ -10,12 +10,12 @@
             - lexicon_tree.py
             - vocab.py
         - cn_loader.py
-        - l_loader.py
+        - le_loader.py
     - analysis.py
     - birnncrf.py
     - crf.py
     - dataloader.py
-    - LBert.py
+    - LEBert.py
     - model.py
     - predicter.py
     - trainer.py
@@ -42,7 +42,7 @@ torch
 
 ## Demo
 
-**Trainer LLoader**
+**Trainer LELoader**
 
 ```python
 from CC.predicter import NERPredict
@@ -63,13 +63,13 @@ args = {
     'bert_vocab_file': './model/chinese_wwm_ext/vocab.txt',
     'tag_file': './data/weibo/labels.txt',
     'output_eval': True,
-    'loader_name': 'l_loader',
+    'loader_name': 'le_loader',
     "word_embedding_file":"./data/tencent/word_embedding.txt",
     "word_vocab_file":"./data/tencent/tencent_vocab.txt",
     "default_tag":"O",
     'batch_size': 8,
     'eval_batch_size': 64,
-    'model_name': 'LBert',
+    'model_name': 'LEBert',
     'task_name': 'weibo'
 }
 trainer = NERTrainer(**args)

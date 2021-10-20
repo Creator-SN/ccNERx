@@ -24,8 +24,8 @@ class NERTrainer(ITrainer):
         - bert_config_file_name
         - pretrained_file_name
         - hidden_dim
-        - word_embedding_file: required in `l_loader`
-        - word_vocab_file: required in `l_loader`
+        - word_embedding_file: required in `le_loader`
+        - word_vocab_file: required in `le_loader`
         - train_file
         - eval_file
         - test_file
@@ -36,22 +36,22 @@ class NERTrainer(ITrainer):
         - word_tag_split: optional in `cn_loader`, default: ' '
         - pattern: optional in `cn_loader`, default: '， O'
         - output_eval: optional, default: None
-        - max_scan: optional in `l_loader`, default: None
-        - add_seq_vocab: optional in `l_loader`, default: False
-        - max_seq_length: optional in `l_loader`, default: 256
-        - max_word_num: optional in `l_loader`, default: 5
-        - default_tag: optional in `l_loader`, default: "O"
-        - model_name: optional, default: "LBert"
-        - loader_name: optional, default: "l_loader"
+        - max_scan: optional in `le_loader`, default: None
+        - add_seq_vocab: optional in `le_loader`, default: False
+        - max_seq_length: optional in `le_loader`, default: 256
+        - max_word_num: optional in `le_loader`, default: 5
+        - default_tag: optional in `le_loader`, default: "O"
+        - model_name: optional, default: "LEBert"
+        - loader_name: optional, default: "le_loader"
         - task_name: optional, default: None
         '''
         assert "num_epochs" in args, "argument num_epochs: required embeding file path"
         assert "num_gpus" in args, "argument num_gpus: required embeding file path"
         assert "hidden_dim" in args, "argument hidden_dim: required embeding file path"
-        self.model_name: str = 'LBert'
+        self.model_name: str = 'LEBert'
         if "model_name" in args:
             self.model_name = args["model_name"]
-        self.loader_name = 'l_loader'
+        self.loader_name = 'le_loader'
         if "loader_name" in args:
             self.loader_name = args["loader_name"]
 
@@ -83,7 +83,7 @@ class NERTrainer(ITrainer):
         result = self.dataloader()
         self.train_data = result['train_set']
         self.train_iter = result['train_iter']
-        if self.loader_name == 'l_loader':
+        if self.loader_name == 'le_loader':
             self.vocab_embedding = result['vocab_embedding']
             self.embedding_dim = result['embedding_dim']
             self.tag_vocab = result['tag_vocab']
@@ -99,12 +99,12 @@ class NERTrainer(ITrainer):
             self.eval_set = result['eval_set']
             self.eval_iter = result['eval_iter']
 
-    def train(self, resume_path=False, resume_step=False):
+    def train(self, resume_path=False, resume_step=False, lr1=2e-5, lr2=1e-3):
         alpha = 1e-10
 
         optimizer = optim.AdamW([
-            {'params': self.model.parameters(), 'lr': 2e-5},
-            {'params': self.birnncrf.parameters(), 'lr': 1e-3}
+            {'params': self.model.parameters(), 'lr': lr1},
+            {'params': self.birnncrf.parameters(), 'lr': lr2}
         ], lr=1e-5, weight_decay=0.)
         scheduler = get_linear_schedule_with_warmup(optimizer, 190, 80000)
         device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")

@@ -70,12 +70,12 @@ class LLoader(IDataLoader):
 
     def process_data(self, batch_size: int, eval_batch_size: int = None):
         assert batch_size is not None, "argument batch_size: required"
-        self.myData = LBertDataSet(self.data_files[0], self.tokenizer, self.lexicon_tree, self.word_vocab,
+        self.myData = LEBertDataSet(self.data_files[0], self.tokenizer, self.lexicon_tree, self.word_vocab,
                                    self.tag_vocab, self.max_word_num, self.max_seq_length, self.default_tag)
         self.dataiter = DataLoader(self.myData, batch_size=batch_size)
         if self.output_eval:
             assert eval_batch_size is not None, "argument eval_batch_size: required"
-            self.myData_eval = LBertDataSet(self.data_files[1], self.tokenizer, self.lexicon_tree, self.word_vocab,
+            self.myData_eval = LEBertDataSet(self.data_files[1], self.tokenizer, self.lexicon_tree, self.word_vocab,
                                             self.tag_vocab, self.max_word_num,  self.max_seq_length, self.default_tag)
             self.dataiter_eval = DataLoader(
                 self.myData_eval, batch_size=eval_batch_size)
@@ -103,7 +103,7 @@ class LLoader(IDataLoader):
             }
 
 
-class LBertDataSet(Dataset):
+class LEBertDataSet(Dataset):
     def __init__(self, file: str, tokenizer, lexicon_tree: Trie, word_vocab: Vocab, tag_vocab: Vocab, max_word_num: int, max_seq_length: int, default_tag: str, do_shuffle: bool = False):
         self.file: str = file
         self.tokenizer = tokenizer

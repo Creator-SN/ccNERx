@@ -3,13 +3,8 @@ import uuid
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.autograd import Variable
 from transformers import BertConfig, BertTokenizer, BertModel
-from CC.crf import CRF
-from tqdm import tqdm
 from ICCSupervised.ICCSupervised import IPredict
-from CC.dataloader import AutoDataLoader
-from CC.analysis import CCAnalysis
 from CC.loaders.cn_loader import BERTDataManager
 
 

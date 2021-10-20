@@ -2,7 +2,7 @@ from re import A
 import torch
 import torch.nn as nn
 from transformers import BertConfig, BertModel
-from CC.LBert import WCBertModel, BertPreTrainedModel
+from CC.LEBert import WCBertModel, BertPreTrainedModel
 from CC.crf import CRF
 from CC.birnncrf import BiRnnCrf
 from ICCSupervised.ICCSupervised import IModel
@@ -11,7 +11,7 @@ from ICCSupervised.ICCSupervised import IModel
 class CCNERModel(IModel):
 
     def __init__(self, **args):
-        required_pretrained_embedding_models = ['LBert', 'LBertFusion']
+        required_pretrained_embedding_models = ['LEBert', 'LEBertFusion']
         assert "model_name" in args, "argument model_name required"
         assert "bert_config_file_name" in args, "argument bert_config_file_name required"
         assert "pretrained_file_name" in args, "argument pretrained_file_name required"
@@ -29,11 +29,11 @@ class CCNERModel(IModel):
 
     def load_model(self):
         config = BertConfig.from_json_file(self.bert_config_file_name)
-        if self.model_name == 'LBert':
-            self.model = LBertModel.from_pretrained(
+        if self.model_name == 'LEBert':
+            self.model = LEBertModel.from_pretrained(
             self.pretrained_file_name, pretrained_embeddings=self.pretrained_embeddings, config=config)
-        elif self.model_name == 'LBertFusion':
-            self.model = LBertModelFusion.from_pretrained(
+        elif self.model_name == 'LEBertFusion':
+            self.model = LEBertModelFusion.from_pretrained(
             self.pretrained_file_name, pretrained_embeddings=self.pretrained_embeddings, config=config)
         elif self.model_name == 'Bert':
             self.model = BertBaseModel.from_pretrained(
@@ -69,7 +69,7 @@ class BertBaseModel(BertPreTrainedModel):
         }
 
 
-class LBertModel(BertPreTrainedModel):
+class LEBertModel(BertPreTrainedModel):
     '''
     config: BertConfig
     pretrained_embeddings: 预训练embeddings shape: size * 200
@@ -141,7 +141,7 @@ class LBertModel(BertPreTrainedModel):
         }
 
 
-class LBertModelFusion(BertPreTrainedModel):
+class LEBertModelFusion(BertPreTrainedModel):
     '''
     config: BertConfig
     pretrained_embeddings: 预训练embeddings shape: size * 200
