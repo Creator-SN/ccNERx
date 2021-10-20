@@ -11,7 +11,7 @@ args = {
     'pretrained_file_name': './model/chinese_wwm_ext/pytorch_model.bin',
     'hidden_dim': 300,
     'max_seq_length': 150,
-    'max_scan_num': 1500000,
+    'max_scan_num': 1000000,
     'train_file': './data/weibo/train.json',
     'eval_file': './data/weibo/dev.json',
     'test_file': './data/weibo/test.json',
