@@ -29,7 +29,7 @@ class LLoader(IDataLoader):
             .add_argument("max_seq_length", int, defaultValue=256) \
             .add_argument("max_word_num", int, defaultValue=5) \
             .add_argument("deafult_tag", str, defaultValue="O") \
-            .add_argument("use_tset", bool, defaultValue=False) \
+            .add_argument("use_test", bool, defaultValue=False) \
             .parse(self, **args)
 
         self.read_data_set()
