@@ -29,7 +29,7 @@ args = {
 }
 trainer = NERTrainer(**args)
 
-for i in trainer():
+for i in trainer(lr2=1e-2):
     a = i
 
 # %%
