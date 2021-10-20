@@ -8,48 +8,41 @@ from ICCSupervised.ICCSupervised import IDataLoader
 import json
 import numpy as np
 import random
+from distutils.util import strtobool
 
 
 class LLoader(IDataLoader):
     def __init__(self, **args):
-        self.read_data_set(**args)
+        KwargsParser(True) \
+            .add_argument("batch_size", int, defaultValue=4) \
+            .add_argument("eval_batch_size", int, defaultValue=16) \
+            .add_argument("word_embedding_file", str) \
+            .add_argument("word_vocab_file", str) \
+            .add_argument("train_file", str) \
+            .add_argument("eval_file", str) \
+            .add_argument("test_file", str) \
+            .add_argument("tag_file", str) \
+            .add_argument("bert_vocab_file", str) \
+            .add_argument("output_eval", bool, defaultValue=True) \
+            .add_argument("max_scan_num", int, defaultValue=1000000) \
+            .add_argument("add_seq_vocab", bool, defaultValue=False) \
+            .add_argument("max_seq_length", int, defaultValue=256) \
+            .add_argument("max_word_num", int, defaultValue=5) \
+            .add_argument("default_tag", str, defaultValue="O") \
+            .add_argument("use_test", bool, defaultValue=False) \
+            .parse(self, **args)
+
+        self.read_data_set()
         self.verify_data()
-        self.process_data(args["batch_size"], args["eval_batch_size"])
+        self.process_data(self.batch_size, self.eval_batch_size)
 
-    def read_data_set(self, **args):
-        assert "word_embedding_file" in args, "argument word_embedding_file: required embeding file path"
-        assert "word_vocab_file" in args, "argument word_vocab_file: required word vocab file to build lexicon tree"
-        assert "train_file" in args, "argument train_file: required train file path"
-        assert "eval_file" in args, "argument eval_file: required eval file path"
-        assert "test_file" in args, "argument test_file: required test file path"
-        assert "tag_file" in args, "argument tag_file: required label file path"
-        # assert "config_name" in args, "argument config_name: required bert config file path"
-        assert "bert_vocab_file" in args, "argument bert_vocab_file: required bert_vocab file path"
-        self.output_eval = True
-        if "output_eval" in args:
-            self.output_eval = args["output_eval"]
-        self.max_scan: int = 1000000
-        if "max_scan_num" in args:
-            self.max_scan = int(args["max_scan_num"])
-        self.add_seq_vocab: bool = False
-        if "add_seq_vocab" in args:
-            self.add_seq_vocab = args["add_seq_vocab"]
-        self.max_seq_length: int = 256
-        if "max_seq_length" in args:
-            self.max_seq_length: int = args["max_seq_length"]
-        self.max_word_num = 5
-        if "max_word_num" in args:
-            self.max_word_num = args["max_word_num"]
-        self.default_tag = "O"
-        if "default_tag" in args:
-            self.default_tag = args["default_tag"]
-
+    def read_data_set(self):
         # build lexicon tree
         self.lexicon_tree: Trie = TrieFactory.get_trie_from_vocabs(
-            [args["word_vocab_file"]], self.max_scan)
+            [self.word_vocab_file], self.max_scan_num)
 
-        self.data_files: List[str] = [args["train_file"],
-                                      args["eval_file"], args["test_file"]]
+        self.data_files: List[str] = [
+            self.train_file, self.eval_file, self.test_file]
 
         self.matched_words: List[str] = TrieFactory.get_all_matched_word_from_dataset(
             self.data_files, self.lexicon_tree)
@@ -58,29 +51,41 @@ class LLoader(IDataLoader):
             self.matched_words, is_word=True, has_default=False, unk_num=5)
 
         self.tag_vocab: Vocab = Vocab().from_files(
-            [args["tag_file"]], is_word=False)
+            [self.tag_file], is_word=False)
 
         self.vocab_embedding, self.embedding_dim = VocabEmbedding(self.word_vocab).build_from_file(
-            args["word_embedding_file"], self.max_scan, self.add_seq_vocab).get_embedding()
+            self.word_embedding_file, self.max_scan_num, self.add_seq_vocab).get_embedding()
 
-        self.tokenizer = BertTokenizer.from_pretrained(args["bert_vocab_file"])
+        self.tokenizer = BertTokenizer.from_pretrained(self.bert_vocab_file)
 
     def verify_data(self):
         pass
 
     def process_data(self, batch_size: int, eval_batch_size: int = None):
-        assert batch_size is not None, "argument batch_size: required"
-        self.myData = LEBertDataSet(self.data_files[0], self.tokenizer, self.lexicon_tree, self.word_vocab,
-                                   self.tag_vocab, self.max_word_num, self.max_seq_length, self.default_tag)
-        self.dataiter = DataLoader(self.myData, batch_size=batch_size)
-        if self.output_eval:
-            assert eval_batch_size is not None, "argument eval_batch_size: required"
-            self.myData_eval = LEBertDataSet(self.data_files[1], self.tokenizer, self.lexicon_tree, self.word_vocab,
-                                            self.tag_vocab, self.max_word_num,  self.max_seq_length, self.default_tag)
-            self.dataiter_eval = DataLoader(
-                self.myData_eval, batch_size=eval_batch_size)
+        if self.use_test:
+            self.myData_test = LEBertDataSet(self.data_files[2], self.tokenizer, self.lexicon_tree,
+                                             self.word_vocab, self.tag_vocab, self.max_word_num, self.max_seq_length, self.default_tag)
+            self.dataiter_test = DataLoader(self.myData_test, batch_size=batch_size)
+        else:
+            self.myData = LEBertDataSet(self.data_files[0], self.tokenizer, self.lexicon_tree, self.word_vocab,
+                                        self.tag_vocab, self.max_word_num, self.max_seq_length, self.default_tag)
+            self.dataiter = DataLoader(self.myData, batch_size=batch_size)
+            if self.output_eval:
+                self.myData_eval = LEBertDataSet(self.data_files[1], self.tokenizer, self.lexicon_tree, self.word_vocab,
+                                                 self.tag_vocab, self.max_word_num,  self.max_seq_length, self.default_tag)
+                self.dataiter_eval = DataLoader(
+                    self.myData_eval, batch_size=eval_batch_size)
 
     def __call__(self):
+        if self.use_test:
+            return {
+                'test_set': self.myData_test,
+                'test_iter': self.myData_test,
+                'vocab_embedding': self.vocab_embedding,
+                'embedding_dim': self.embedding_dim,
+                'word_vocab': self.word_vocab,
+                'tag_vocab': self.tag_vocab
+            }
         if self.output_eval:
             return {
                 'train_set': self.myData,
