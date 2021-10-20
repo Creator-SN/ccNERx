@@ -10,19 +10,18 @@ args = {
     "tag_file": "./data/labels.txt",
     "word_embedding_file": "./data/tencent/word_embedding.txt",
     "word_vocab_file": "./data/tencent/tencent_vocab.txt",
-    "bert_vocab_file": "./data/bert/basechinese/vocab.txt",
+    "bert_vocab_file": "./data/bert/chinese_wwm_ext/vocab.txt",
     "default_tag": "O",
     "max_scan_num": 1500000
 }
 
-LLoader(**args).myData[0][4]
+LLoader(**args).myData[0]
 
 # %%
 import json
 from CC.trainer import NERTrainer
 from CC.predicter import NERPredict
-
-# %%
+#%%
 args = {
     'num_epochs': 30,
     'num_gpus': [0, 1, 2, 3],
@@ -44,9 +43,24 @@ args = {
     'model_name': 'Bert',
     'task_name': 'news'
 }
+
+# %%
+
 trainer = NERTrainer(**args)
 
 for i in trainer():
     a = i
 
+# %%
+from CC.loaders.utils import *
+class foo():
+    def __init__(self,**kwargs):
+        KwargsParser(True) \
+        .add_argument("num_epochs", int, 30) \
+        .add_argument("num_gpus", list) \
+        .parse(self,**kwargs)
+
+a = foo(**args)
+a.num_gpus
+    
 # %%

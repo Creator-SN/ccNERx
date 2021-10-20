@@ -3,3 +3,4 @@ from CC.loaders.utils.lexicon_tree import *
 from CC.loaders.utils.lexicon_factory import *
 from CC.loaders.utils.vocab import *
 from CC.loaders.utils.embedding import *
+from CC.loaders.utils.parser import *
