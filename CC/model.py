@@ -85,15 +85,6 @@ class LEBertModel(BertPreTrainedModel):
 
         self.init_weights()
 
-        # self.word_transform = nn.Linear(config.word_embed_dim, config.hidden_size)
-        # self.act = nn.Tanh()
-        # self.word_word_weight = nn.Linear(config.hidden_size, config.hidden_size)
-        # self.dropout = nn.Dropout(config.HP_dropout)
-
-        # attn_W = torch.zeros(config.hidden_size, config.hidden_size)
-        # self.attn_W = nn.Parameter(attn_W)
-        # self.attn_W.data.normal_(mean=0.0, std=config.initializer_range)
-
         # init the embedding
         self.word_embeddings.weight.data.copy_(
             torch.from_numpy(pretrained_embeddings))
@@ -114,23 +105,6 @@ class LEBertModel(BertPreTrainedModel):
         )
 
         sequence_output = outputs[0]
-
-        # matched_word_embeddings = self.word_transform(matched_word_embeddings)
-        # matched_word_embeddings = self.act(matched_word_embeddings)
-        # matched_word_embeddings = self.word_word_weight(matched_word_embeddings)
-        # matched_word_embeddings = self.dropout(matched_word_embeddings)
-
-        # alpha = torch.matmul(sequence_output.unsqueeze(2), self.attn_W)  # [N, L, 1, D]
-        # alpha = torch.matmul(alpha, torch.transpose(matched_word_embeddings, 2, 3))  # [N, L, 1, W]
-        # alpha = alpha.squeeze()  # [N, L, W]
-        # alpha = alpha + (1 - args['matched_word_mask'].float()) * (-2 ** 31 + 1)
-        # alpha = torch.nn.Softmax(dim=-1)(alpha)  # [N, L, W]
-        # alpha = alpha.unsqueeze(-1)  # [N, L, W, 1]
-        # matched_word_embeddings = torch.sum(matched_word_embeddings * alpha, dim=2)  # [N, L, D]
-
-        # ## concat the embedding [B, L, N, D], [B, L, N]
-        # sequence_output = torch.cat((sequence_output, matched_word_embeddings), dim=-1)
-        # sequence_output = self.dropout(sequence_output)
 
         return {
             'mix_output': sequence_output,
