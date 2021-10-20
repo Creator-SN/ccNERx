@@ -65,7 +65,7 @@ class LLoader(IDataLoader):
         if self.use_test:
             self.myData_test = LEBertDataSet(self.data_files[2], self.tokenizer, self.lexicon_tree,
                                              self.word_vocab, self.tag_vocab, self.max_word_num, self.max_seq_length, self.default_tag)
-            self.dataiter = DataLoader(self.myData_test, batch_size=batch_size)
+            self.dataiter_test = DataLoader(self.myData_test, batch_size=batch_size)
         else:
             self.myData = LEBertDataSet(self.data_files[0], self.tokenizer, self.lexicon_tree, self.word_vocab,
                                         self.tag_vocab, self.max_word_num, self.max_seq_length, self.default_tag)
