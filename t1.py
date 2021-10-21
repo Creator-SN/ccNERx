@@ -16,17 +16,25 @@ args = {
     'eval_file': './data/chinese_data/pre_dev.json',
     'test_file': './data/chinese_data/pre_test.json',
     'bert_vocab_file': './model/chinese_wwm_ext/vocab.txt',
+    "bert_model_file": "./save_model/Super/Bert/Bert_29790.pth",
     'tag_file': './data/chinese_data/tags_list.txt',
     'output_eval': True,
     'loader_name': 'le_loader',
-    "word_embedding_file":"./data/tencent/word_embedding.txt",
-    "word_vocab_file":"./data/tencent/tencent_vocab.txt",
-    "default_tag":"O",
+    "word_embedding_file": "./data/tencent/word_embedding.txt",
+    "word_vocab_file": "./data/tencent/tencent_vocab.txt",
+    "default_tag": "O",
     'batch_size': 8,
     'eval_batch_size': 64,
     'model_name': 'LEBert',
-    'task_name': 'chinese_data'
+    'task_name': 'chinese_data',
+    'lstm_crf_model_file': './save_model/Super/lstm_crf/lstm_crf_29790.pth'
 }
+
+# %%
+predict = NERPredict(**args)
+predict(["坐落于福州的福州大学ACM研究生团队, 在帅气幽默的傅仰耿老师带领下, 正在紧张刺激的开发一套全新的神秘系统。"])
+
+# %%
 trainer = NERTrainer(**args)
 
 for i in trainer(lr2=1e-2):

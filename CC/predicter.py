@@ -8,20 +8,15 @@ from ICCSupervised.ICCSupervised import IPredict
 from CC.loaders.cn_loader import BERTDataManager
 from CC.loaders import *
 from CC.loaders.utils import *
-from CC.model import CCNERModel
+from CC.model import *
+from CC.dataloader import AutoDataLoader
+from CC.analysis import CCAnalysis
 
 
 class NERPredict(IPredict):
 
-    def __init__(self, use_gpu,
-                 bert_config_file_name,
-                 vocab_file_name,
-                 tags_file_name,
-                 bert_model_path,
-                 lstm_crf_model_path,
-                 hidden_dim,
-                 padding_length=512, **args):
-        parser = KwargsParser(debug=True) \
+    def __init__(self, **args):
+        KwargsParser(debug=True) \
             .add_argument("use_gpu", bool, defaultValue=False) \
             .add_argument("loader_name", str, defaultValue="le_loader") \
             .add_argument("model_name", str, defaultValue="LEBert") \
@@ -33,86 +28,116 @@ class NERPredict(IPredict):
             .add_argument("tag_file", str) \
             .add_argument("padding_length", int, 512) \
             .parse(self, **args)
-
-        if self.loader_name == "le_loader":
-            self.loader = LLoader(**args)
-        elif self.loader_name == "cn_loader":
-            self.data_manager_init(self.bert_vocab_file, self.tag_file)
-            self.tokenizer = BertTokenizer.from_pretrained(self.vocab_file)
+        args["use_test"] = True
+        args["do_predict"] = True
+        self.dataloader_init(**args)
         self.model_init()
 
-    def data_manager_init(self, vocab_file_name, tags_file_name):
-        tags_list = BERTDataManager.ReadTagsList(tags_file_name)
-        tags_list = [tags_list]
-        self.dm = BERTDataManager(tags_list=tags_list,
-                                  vocab_file_name=vocab_file_name)
+    def dataloader_init(self, **args):
+        self.dataloader = AutoDataLoader(**args)
+        result = self.dataloader()
+        if self.loader_name == 'le_loader':
+            self.vocab_embedding = result['vocab_embedding']
+            self.embedding_dim = result['embedding_dim']
+            self.tag_vocab = result['tag_vocab']
+            self.tag_size = self.tag_vocab.__len__()
+            self.analysis = CCAnalysis(
+                self.tag_vocab.token2id, self.tag_vocab.id2token)
+        if self.loader_name == 'cn_loader':
+            self.dm = result['dm']
+            self.tag_size = len(self.dm.tag_to_idx)
+            self.analysis = CCAnalysis(self.dm.tagToIdx, self.dm.idxToTag)
 
     def model_init(self):
-        model_args = {
-            'model_name': self.model_name,
-            'bert_config_file_name': self.bert_config_file_name,
-            'tagset_size': self.tag_size,
-            'hidden_dim': self.hidden_dim
-        }
-        # TODO: Add self attributes
-        if 'word_embedding_file' in args:
-            model_args['pretrained_embeddings'] = self.vocab_embedding
-        if 'pretrained_file_name' in args:
-            model_args['pretrained_file_name'] = args['pretrained_file_name']
+        config = BertConfig.from_json_file(self.bert_config_file_name)
+        if self.model_name == 'LEBert':
+            self.model = LEBertModel(
+                config, pretrained_embeddings=self.vocab_embedding)
+        elif self.model_name == 'LEBertFusion':
+            self.model = LEBertModelFusion(
+                config, pretrained_embeddings=self.vocab_embedding)
+        elif self.model_name == 'Bert':
+            self.model = BertBaseModel(config)
 
-        self.bert_ner = CCNERModel(**model_args)
-        self.model, self.birnncrf = self.bert_ner()
+        if torch.cuda.is_available() and self.use_gpu:
+            bert_dict = torch.load(self.bert_model_file).module.state_dict()
+            self.model.load_state_dict(bert_dict)
+            self.birnncrf = torch.load(self.lstm_crf_model_file)
+        else:
+            bert_dict = torch.load(
+                self.bert_model_file, map_location="cpu").module.state_dict()
+            self.model.load_state_dict(bert_dict)
+            self.birnncrf = torch.load(
+                self.lstm_crf_model_file, map_location="cpu")
 
-    def data_process(self, sentences):
-        result = []
-        pad_tag = '[PAD]'
-        if type(sentences) == str:
-            sentences = [sentences]
-        max_len = 0
-        for sentence in sentences:
-            encode = self.tokenizer.encode(
-                sentence, add_special_tokens=True, max_length=self.padding_length, truncation=True)
-            result.append(encode)
-            if max_len < len(encode):
-                max_len = len(encode)
+        self.model.eval()
+        self.birnncrf.eval()
 
-        for i, sentence in enumerate(result):
-            remain = max_len - len(sentence)
-            for _ in range(remain):
-                result[i].append(self.dm.wordToIdx(pad_tag))
-        return torch.tensor(result)
+    # def data_process(self, sentences):
+    #     result = []
+    #     pad_tag = '[PAD]'
+    #     if type(sentences) == str:
+    #         sentences = [sentences]
+    #     max_len = 0
+    #     for sentence in sentences:
+    #         encode = self.tokenizer.encode(
+    #             sentence, add_special_tokens=True, max_length=self.padding_length, truncation=True)
+    #         result.append(encode)
+    #         if max_len < len(encode):
+    #             max_len = len(encode)
+
+    #     for i, sentence in enumerate(result):
+    #         remain = max_len - len(sentence)
+    #         for _ in range(remain):
+    #             result[i].append(self.dm.wordToIdx(pad_tag))
+    #     return torch.tensor(result)
+
+    def cuda(self, inputX):
+        if type(inputX) == tuple:
+            if torch.cuda.is_available() and self.use_gpu:
+                result = []
+                for item in inputX:
+                    result.append(item.cuda())
+                return result
+            return inputX
+        else:
+            if torch.cuda.is_available() and self.use_gpu:
+                return inputX.cuda()
+            return inputX
 
     def pred(self, sentences):
-        sentences = self.data_process(sentences)
-
-        device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+        # sentences = self.data_process(sentences)
+        device = None
+        if self.use_gpu:
+            device = torch.device(
+                "cuda:0" if torch.cuda.is_available() else "cpu")
+        else:
+            device = torch.device("cpu")
 
         self.model.to(device)
         self.birnncrf.to(device)
+        
+        if self.loader_name == "le_loader":
+            preds = []
+            for sentence in sentences:
+                with torch.no_grad():
+                    it = self.dataloader.loader.myData_test.convert_embedding(
+                        {"text": sentences}, to_tensor=True, return_dict=True)
+                    for key in it:
+                        it[key] = self.cuda(it[key])
 
-        with torch.no_grad():
-            if torch.cuda.is_available():
-                self.model.cuda()
-                self.birnncrf.cuda()
-                sentences = sentences.cuda()
-
-            outputs = self.model(input_ids=sentences,
-                                 attention_mask=sentences.gt(0))
-            hidden_states = outputs[0]
-            scores, tags = self.birnncrf(hidden_states, sentences.gt(0))
-        final_tags = []
-        decode_sentences = []
-
-        for item in tags:
-            final_tags.append([self.dm.idx_to_tag[tag] for tag in item])
-
-        for item in sentences.tolist():
-            s = []
-            for word_idx in item:
-                s.append(self.dm.idxToWord(word_idx))
-            decode_sentences.append(s)
-
-        return (scores, tags, final_tags, decode_sentences)
+                    outputs = self.model(**it)
+                    hidden_states = outputs['mix_output']
+                    loss = self.birnncrf.loss(
+                        hidden_states, it['input_ids'].gt(0), it['labels'])
+                    loss = loss.mean()
+                    pred = self.birnncrf(
+                        hidden_states, it['input_ids'].gt(0))[1]
+                    preds.append(pred)
+            return preds
+        else:
+            # TODO: implement cn_loader
+            raise NotImplementedError()
 
     def __call__(self, sentences):
         return self.pred(sentences)
