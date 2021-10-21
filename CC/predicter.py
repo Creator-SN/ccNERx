@@ -105,7 +105,7 @@ class NERPredict(IPredict):
                 return inputX.cuda()
             return inputX
 
-    def pred(self, sentences):
+    def pred(self, sentences, return_dict: bool = False):
         # sentences = self.data_process(sentences)
         device = None
         if self.use_gpu:
@@ -116,28 +116,30 @@ class NERPredict(IPredict):
 
         self.model.to(device)
         self.birnncrf.to(device)
-        
+
         if self.loader_name == "le_loader":
-            preds = []
+            results = []
             for sentence in sentences:
                 with torch.no_grad():
                     it = self.dataloader.loader.myData_test.convert_embedding(
-                        {"text": sentences}, to_tensor=True, return_dict=True)
-                    for key in it:
-                        it[key] = self.cuda(it[key])
+                        {"text": list(sentence)}, to_tensor=False, return_dict=True)
+                    for key in it.keys():
+                        it[key] = self.cuda(torch.tensor([it[key]]))
 
                     outputs = self.model(**it)
                     hidden_states = outputs['mix_output']
-                    loss = self.birnncrf.loss(
-                        hidden_states, it['input_ids'].gt(0), it['labels'])
-                    loss = loss.mean()
                     pred = self.birnncrf(
-                        hidden_states, it['input_ids'].gt(0))[1]
-                    preds.append(pred)
-            return preds
+                        hidden_states, it['input_ids'].gt(0))[1][0]
+                    if not return_dict:
+                        results.append(
+                            (list(sentence), self.analysis.idx2tag(pred)[1:-1]))
+                    else:
+                        results.append(
+                            dict(zip(sentence, self.analysis.idx2tag(pred)[1:-1])))
+            return results
         else:
             # TODO: implement cn_loader
             raise NotImplementedError()
 
-    def __call__(self, sentences):
-        return self.pred(sentences)
+    def __call__(self, sentences, return_dict: bool = False):
+        return self.pred(sentences, return_dict=return_dict)
