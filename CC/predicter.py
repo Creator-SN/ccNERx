@@ -118,25 +118,29 @@ class NERPredict(IPredict):
         self.birnncrf.to(device)
 
         if self.loader_name == "le_loader":
-            results = []
+            batch = {}
+            new_sentence = []
             for sentence in sentences:
-                with torch.no_grad():
-                    it = self.dataloader.loader.myData_test.convert_embedding(
-                        {"text": list(sentence)}, to_tensor=False, return_dict=True)
-                    for key in it.keys():
-                        it[key] = self.cuda(torch.tensor([it[key]]))
-
-                    outputs = self.model(**it)
-                    hidden_states = outputs['mix_output']
-                    pred = self.birnncrf(
-                        hidden_states, it['input_ids'].gt(0))[1][0]
-                    if not return_dict:
-                        results.append(
-                            (list(sentence), self.analysis.idx2tag(pred)[1:-1]))
-                    else:
-                        results.append(
-                            dict(zip(sentence, self.analysis.idx2tag(pred)[1:-1])))
-            return results
+                new_sentence.append(list(sentence))
+                it = self.dataloader.loader.myData_test.convert_embedding(
+                    {"text": new_sentence[-1]}, to_tensor=False, return_dict=True)
+                for key in it.keys():
+                    if key not in batch:
+                        batch[key] = []
+                    batch[key].append(it[key])
+            it = batch
+            with torch.no_grad():
+                for key in it.keys():
+                    it[key] = self.cuda(torch.tensor(it[key]))
+                outputs = self.model(**it)
+                hidden_states = outputs['mix_output']
+                pred = self.birnncrf(
+                    hidden_states, it['input_ids'].gt(0))[1]
+                pred_tags = [self.analysis.idx2tag(it)[1:-1] for it in pred]
+                if not return_dict:
+                    return list(zip(new_sentence, pred_tags))
+                else:
+                    return [dict(zip(sentence, tags)) for sentence, tags in zip(new_sentence, pred_tags)]
         else:
             # TODO: implement cn_loader
             raise NotImplementedError()
