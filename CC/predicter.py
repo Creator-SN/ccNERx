@@ -27,6 +27,7 @@ class NERPredict(IPredict):
             .add_argument("bert_config_file_name", str) \
             .add_argument("tag_file", str) \
             .add_argument("padding_length", int, 512) \
+            .add_argument("num_gpus", list, [0]) \
             .parse(self, **args)
         args["use_test"] = True
         args["do_predict"] = True
@@ -63,6 +64,10 @@ class NERPredict(IPredict):
             bert_dict = torch.load(self.bert_model_file).module.state_dict()
             self.model.load_state_dict(bert_dict)
             self.birnncrf = torch.load(self.lstm_crf_model_file)
+            if torch.cuda.device_count() > 1:
+                self.model = nn.DataParallel(
+                    self.model, device_ids=self.num_gpus)
+                self.birnncrf = self.birnncrf.cuda()
         else:
             bert_dict = torch.load(
                 self.bert_model_file, map_location="cpu").module.state_dict()

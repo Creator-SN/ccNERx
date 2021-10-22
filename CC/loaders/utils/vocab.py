@@ -92,7 +92,7 @@ class Vocab():
             if unk in self.item2idx:
                 return self.item2idx[unk]
             else:
-                return self.item2idx['unk']
+                return self.item2idx['<unk>']
         else:
             print(f"token:{token} does not exist!")
             raise KeyError()
