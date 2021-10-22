@@ -28,6 +28,12 @@ args = {
     'model_name': 'LEBert',
     'task_name': 'Super_LEBert'
 }
+
+# %%
+predict = NERPredict(**args)
+predict(["坐落于福州的福州大学ACM研究生团队, 在帅气幽默的傅仰耿老师带领下, 正在紧张刺激的开发一套全新的神秘系统。"])
+
+# %%
 trainer = NERTrainer(**args)
 
 for i in trainer():

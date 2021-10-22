@@ -12,9 +12,9 @@ class KwargItem():
         self.optional = optional
         self.defaultValue = defaultValue
         if description == "":
-            if optional:
-                desription = f"args {name}: required!"
-        self.desription = description
+            if not optional:
+                description = f"args {name}: required!"
+        self.description = description
 
 
 class KwargsParser():

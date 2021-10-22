@@ -32,6 +32,7 @@ class LLoader(IDataLoader):
             .add_argument("default_tag", str, defaultValue="O") \
             .add_argument("use_test", bool, defaultValue=False) \
             .add_argument("do_shuffle", bool, defaultValue=False) \
+            .add_argument("do_predict", bool, defaultValue=False) \
             .add_argument("task_name", str) \
             .parse(self, **args)
 
@@ -68,7 +69,7 @@ class LLoader(IDataLoader):
     def process_data(self, batch_size: int, eval_batch_size: int = None, test_batch_size: int = None):
         if self.use_test:
             self.myData_test = LEBertDataSet(self.data_files[2], self.tokenizer, self.lexicon_tree,
-                                             self.word_vocab, self.tag_vocab, self.max_word_num, self.max_seq_length, self.default_tag)
+                                             self.word_vocab, self.tag_vocab, self.max_word_num, self.max_seq_length, self.default_tag, self.do_predict)
             self.dataiter_test = DataLoader(
                 self.myData_test, batch_size=test_batch_size)
         else:
@@ -128,7 +129,7 @@ class LEBertDataSet(Dataset):
         if not self.do_predict:
             self.init_dataset()
 
-    def convert_embedding(self, obj, return_dict: bool = False):
+    def convert_embedding(self, obj, return_dict: bool = False, to_tensor: bool = False):
         if "text" not in obj:
             raise ValueError("obj required attribute: text")
         text = ["[CLS]"] + obj["text"][:self.max_seq_length-2] + ["[SEP]"]
@@ -171,11 +172,17 @@ class LEBertDataSet(Dataset):
         assert input_token_ids.shape[0] == labels.shape[0]
         assert matched_word_ids.shape[1] == matched_word_mask.shape[1]
         assert matched_word_ids.shape[1] == self.max_word_num
-
+        if to_tensor:
+            input_token_ids = tensor(input_token_ids)
+            segment_ids = tensor(segment_ids)
+            attention_mask = tensor(segment_ids)
+            matched_word_ids = tensor(matched_word_ids)
+            matched_word_mask = tensor(matched_word_mask)
+            labels = tensor(labels)
         if return_dict:
             return {
-                "input_token_ids": input_token_ids,
-                "segment_ids": segment_ids,
+                "input_ids": input_token_ids,
+                "token_type_ids": segment_ids,
                 "attention_mask": attention_mask,
                 "matched_word_ids": matched_word_ids,
                 "matched_word_mask": matched_word_mask,
