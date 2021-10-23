@@ -15,7 +15,7 @@ args = {
     'pretrained_file_name': './model/chinese_wwm_ext/pytorch_model.bin',
     'hidden_dim': 300,
     'max_seq_length': 150,
-    'max_scan_num': 1000000,
+    'max_scan_num': 100,
     'train_file': './data/chinese_data/pre_train.json',
     'eval_file': './data/chinese_data/pre_dev.json',
     'test_file': './data/chinese_data/pre_test.json',
