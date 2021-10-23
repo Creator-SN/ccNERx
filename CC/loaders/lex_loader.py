@@ -276,7 +276,7 @@ class LEXBertDataSet(Dataset):
             'token_type_ids': tensor(self.token_type_ids[idx]),
             'matched_word_ids': tensor(self.matched_word_ids[idx]),
             'matched_word_mask': tensor(self.matched_word_mask[idx]),
-            'matched_word_label_ids': tensor(self.matched_word_label_ids),
+            'matched_word_label_ids': tensor(self.matched_word_label_ids[idx]),
             'input_labels': tensor(self.input_labels[idx]),
             'labels': tensor(self.labels[idx])
         }
