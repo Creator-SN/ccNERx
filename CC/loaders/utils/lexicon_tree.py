@@ -42,6 +42,18 @@ class Trie():
         ptr.is_word = True
         if deep > self.max_depth:
             self.max_depth = deep
+        return self
+
+    def __add__(self, word: str):
+        """ add word
+
+        Args:
+            word (str): word
+
+        Returns:
+            Trie: self
+        """
+        return self.insert(word)
 
     def search(self, word: str) -> bool:
         """search word 

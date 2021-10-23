@@ -28,12 +28,12 @@ class Vocab():
             self += "<unk>"
             for i in range(unk_num):
                 self += f'<unk>{i+1}'
-        for word in words:
+        for word in tqdm(words, desc="load vocab from list"):
             assert type(word) == str
             self += word
         return self
 
-    def from_files(self, files: List[str], is_word: bool = False, has_default: bool = False, unk_num: str = 0):
+    def from_files(self, files: List[str], is_word: bool = False, has_default: bool = False, unk_num: str = 0, max_scan_num: int = -1):
         """get vocabs from file
 
         Args:
@@ -48,13 +48,17 @@ class Vocab():
         words = []
         for file in files:
             file_lines = FileUtil.count_lines(file)
-            for line in tqdm(FileUtil.line_iter(file), desc="load vocab from files", total=file_lines):
+            if max_scan_num != -1:
+                file_lines = min(max_scan_num, file_lines)
+            for index, line in tqdm(enumerate(FileUtil.line_iter(file)), desc="load vocab from files", total=file_lines):
                 line = line.strip()
                 if not line:
                     continue
+                if index >= file_lines:
+                    break
                 word = line.split()[0].strip()
                 words.append(word)
-        return self.from_list(words)
+        return self.from_list(words, is_word, has_default, unk_num)
 
     def id2token(self, id: int):
         """ convert id to token

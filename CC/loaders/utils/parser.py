@@ -29,11 +29,11 @@ class KwargsParser():
         Args:
             argName (str): arg name
             argType (type): arg type
-            defaultValue ([type], optional): [description]. Defaults to None.
-            optional (bool, optional): [description]. Defaults to False.
+            defaultValue (any, optional): default value. Defaults to None.
+            optional (bool, optional): is optional? Defaults to False.
 
         Returns:
-            [type]: [description]
+            [type]: self
         """
         self.args_name_dict[argName] = KwargItem(
             argName, argType, optional=optional, defaultValue=defaultValue, description=description)
@@ -51,10 +51,14 @@ class KwargsParser():
             else:
                 if argName in kwargs:
                     value = kwargs[argName]
-            setattr(instance, argName, self._convert_to(value, arg.type))
+            if arg.optional and arg.defaultValue == None:
+                setattr(instance, argName, None)
+            else:
+                setattr(instance, argName, self._convert_to(value, arg.type))
             self.kv[argName] = getattr(instance, argName)
         if self.debug:
-            print(f"kwargs parser: {json.dumps(self.kv,indent=4)}")
+            print(
+                f"kwargs parser: {json.dumps(self.kv,indent=4,ensure_ascii=False)}")
         return self
 
     def parse_dict(self, **kwargs):
@@ -69,9 +73,14 @@ class KwargsParser():
             else:
                 if argName in kwargs:
                     value = kwargs[argName]
-            self.kv[argName] = self._convert_to(value, arg.type)
+            if arg.optional and arg.defaultValue == None:
+                self.kv[argName] = None
+            else:
+                self.kv[argName] = self._convert_to(value, arg.type)
+
         if self.debug:
-            print(f"kwargs parser: {json.dumps(self.kv,indent=4)}")
+            print(
+                f"kwargs parser: {json.dumps(self.kv,indent=4,ensure_ascii=False)}")
         return self.kv
 
     def _convert_to(self, value, _type: type):
