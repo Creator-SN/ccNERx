@@ -10,23 +10,23 @@ args = {
     'bert_config_file_name': './model/chinese_wwm_ext/bert_config.json',
     'pretrained_file_name': './model/chinese_wwm_ext/pytorch_model.bin',
     'hidden_dim': 300,
-    'max_seq_length': 100,
+    'max_seq_length': 150,
     'max_scan_num': 1000000,
-    'train_file': './data/SuperNER/pre_train.json',
-    'eval_file': './data/SuperNER/pre_dev.json',
-    'test_file': './data/SuperNER/pre_dev.json',
+    'train_file': './data/weibo/train.json',
+    'eval_file': './data/weibo/dev.json',
+    'test_file': './data/weibo/test.json',
     'bert_vocab_file': './model/chinese_wwm_ext/vocab.txt',
-    'tag_file': './data/SuperNER/tags_list.txt',
+    'tag_file': './data/weibo/labels.txt',
     'output_eval': True,
     'loader_name': 'le_loader',
     "word_embedding_file":"./data/tencent/word_embedding.txt",
     "word_vocab_file":"./data/tencent/tencent_vocab.txt",
     "default_tag":"O",
-    'batch_size': 256,
+    'batch_size': 8,
     'eval_batch_size': 64,
     'do_shuffle': True,
     'model_name': 'LEBert',
-    'task_name': 'Super_LEBert'
+    'task_name': 'weibo'
 }
 
 # %%

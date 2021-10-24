@@ -36,31 +36,31 @@ args = {
 predict = NERPredict(**args)
 
 # %%
-predict(["哦啊", "词语", "福州", "测试", "你好", "助手", "帮忙",
-        "团结", "友善", "民主", "善良", "小伙子", "新浪财经", "微博", "博客"])
-# %%
-filename = "./data/tencent/tencent_vocab.txt"
-totals = FileUtil.count_lines(filename)
-iter = tqdm(FileUtil.line_iter(filename), total=totals)
-savefile = "./data/tencent/tencent_vocab_with_tag.json"
-with open(savefile, "w", encoding="utf-8") as f:
-    words = []
-    for index, line in enumerate(iter):
-        word = line.strip()
-        words.append(word)
-        if index % 2048 == 2047:
-            preds = predict(words)
-            buffer = "\n".join(
-                [json.dumps(pred, ensure_ascii=False) for pred in preds])
-            # print(buffer)
-            f.write(f'{buffer}\n')
-            words = []
-    if len(words) > 0:
-        preds = predict(words)
-        buffer = "\n".join([json.dumps(pred, ensure_ascii=False)
-                           for pred in preds])
-        f.write(f'{buffer}\n')
-        words = []
 
+with open('./data/weibo/dev.json') as f:
+    ori_list = f.read().split('\n')
+ori_list = ori_list[:-1]
+
+batch_size = 50
+texts = []
+result = []
+for idx, item in enumerate(ori_list):
+    item = json.loads(item)
+    item = item['text']
+    texts.append(''.join(item))
+    if idx != 0 and idx % batch_size == 0:
+        result += predict(texts[idx - batch_size:idx])
+
+if idx % batch_size != 0:
+    result += predict(texts[idx - (idx % batch_size):])
+
+with open('./weibo_predict.json', mode='w+') as f:
+    f.write("")
+with open('./weibo_predict.json', mode='a+') as f:
+    for line in result:
+        f.write('{}\n'.format(json.dumps({
+            'text': line[0],
+            'label': line[1]
+        }, ensure_ascii=False)))
 
 # %%
