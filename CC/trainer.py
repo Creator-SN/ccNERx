@@ -4,9 +4,7 @@ import uuid
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.autograd import Variable
 from transformers import BertConfig, BertTokenizer, BertModel, get_linear_schedule_with_warmup
-from CC.crf import CRF
 from tqdm import tqdm
 from ICCSupervised.ICCSupervised import ITrainer
 from CC.dataloader import AutoDataLoader
@@ -108,7 +106,7 @@ class NERTrainer(ITrainer):
         ], lr=1e-5, weight_decay=0.)
         scheduler = get_linear_schedule_with_warmup(optimizer, 190, 80000)
         device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-        if torch.cuda.device_count() > 1:
+        if torch.cuda.device_count() > 0:
             self.model = nn.DataParallel(self.model, device_ids=self.num_gpus)
             self.birnncrf.cuda()
 

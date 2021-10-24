@@ -86,7 +86,7 @@ class LLoader(IDataLoader):
         if self.use_test:
             return {
                 'test_set': self.myData_test,
-                'test_iter': self.myData_test,
+                'test_iter': self.dataiter_test,
                 'vocab_embedding': self.vocab_embedding,
                 'embedding_dim': self.embedding_dim,
                 'word_vocab': self.word_vocab,

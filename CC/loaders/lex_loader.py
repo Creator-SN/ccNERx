@@ -106,6 +106,37 @@ class LXLoader(IDataLoader):
                 self.dataiter_eval = DataLoader(
                     self.myData_eval, batch_size=self.eval_batch_size)
 
+    def __call__(self):
+        if self.use_test:
+            return {
+                'test_set': self.myData_test,
+                'test_iter': self.dataiter_test,
+                'vocab_embedding': self.vocab_embedding,
+                'embedding_dim': self.embedding_dim,
+                'word_vocab': self.word_vocab,
+                'tag_vocab': self.tag_vocab
+            }
+        if self.output_eval:
+            return {
+                'train_set': self.myData,
+                'train_iter': self.dataiter,
+                'eval_set': self.myData_eval,
+                'eval_iter': self.dataiter_eval,
+                'vocab_embedding': self.vocab_embedding,
+                'embedding_dim': self.embedding_dim,
+                'word_vocab': self.word_vocab,
+                'tag_vocab': self.tag_vocab
+            }
+        else:
+            return {
+                'train_set': self.myData,
+                'train_iter': self.dataiter,
+                'vocab_embedding': self.vocab_embedding,
+                'embedding_dim': self.embedding_dim,
+                'word_vocab': self.word_vocab,
+                'tag_vocab': self.tag_vocab
+            }
+
 
 class LEXBertDataSet(Dataset):
     def __init__(self, dataset_file: str, **args):
