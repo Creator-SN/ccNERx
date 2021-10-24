@@ -126,15 +126,19 @@ class LEXBertDataSet(Dataset):
             prompt_tags = []
             word = []
             labels = []
+            exist_prompt = set()
             for ch, label in zip(item["text"], item["label"]):
                 if label != self.default_tag:
                     if label.startswith('B-'):
                         if len(word) != 0:
                             prompt, prompt_mask, prompt_tag = self.tag_convert.tag2prompt(
                                 labels, word)
-                            prompts.append(prompt)
-                            prompt_masks.append(prompt_mask)
-                            prompt_tags.append(prompt_tag)
+                            key = hash(str(prompt))
+                            if key not in exist_prompt:
+                                exist_prompt.add(key)
+                                prompts.append(prompt)
+                                prompt_masks.append(prompt_mask)
+                                prompt_tags.append(prompt_tag)
                             word = []
                             labels = []
                     word.append(ch)
@@ -142,12 +146,33 @@ class LEXBertDataSet(Dataset):
             if len(word) != 0:
                 prompt, prompt_mask, prompt_tag = self.tag_convert.tag2prompt(
                     labels, word)
-                prompts.append(prompt)
-                prompt_masks.append(prompt_mask)
-                prompt_tags.append(prompt_tag)
+                key = hash(str(prompt))
+                if key not in exist_prompt:
+                    exist_prompt.add(key)
+                    prompts.append(prompt)
+                    prompt_masks.append(prompt_mask)
+                    prompt_tags.append(prompt_tag)
             # resolve input
             text = ["[CLS]"] + item["text"][:self.max_seq_length-2]+["[SEP]"]
             text_origin_length = len(text)
+
+            matched_words = self.lexicon_tree.getAllMatchedWordList(
+                text, self.max_word_num)
+            # for matched_word add prompt
+            for words in matched_words:
+                for word in words:
+                    tag = self.word_vocab.tag(word)
+                    # if the word tag is "O", skip...
+                    if tag[0] == self.default_tag:
+                        continue
+                    prompt, prompt_mask, prompt_tag = self.tag_convert.tag2prompt(
+                        tag, word)
+                    key = hash(str(prompt))
+                    if key not in exist_prompt:
+                        exist_prompt.add(key)
+                        prompts.append(prompt)
+                        prompt_masks.append(prompt_mask)
+                        prompt_tags.append(prompt_tag)
 
             label = [self.default_tag] + \
                 item["label"][:self.max_seq_length-2]+[self.default_tag]
@@ -191,9 +216,6 @@ class LEXBertDataSet(Dataset):
                 (self.max_seq_length, self.max_word_num), dtype=np.int)
             np_matched_word_label_ids = np.zeros(
                 (self.max_seq_length, self.max_word_num), dtype=np.int)
-
-            matched_words = self.lexicon_tree.getAllMatchedWordList(
-                text, self.max_word_num)
 
             for i, words in enumerate(matched_words):
                 words = words[:self.max_word_num]

@@ -15,7 +15,7 @@ args = {
     'pretrained_file_name': './model/chinese_wwm_ext/pytorch_model.bin',
     'hidden_dim': 300,
     'max_seq_length': 150,
-    'max_scan_num': 100,
+    'max_scan_num': 1000000,
     'train_file': './data/chinese_data/pre_train.json',
     'eval_file': './data/chinese_data/pre_dev.json',
     'test_file': './data/chinese_data/pre_test.json',
@@ -59,8 +59,17 @@ args = {
 # %%
 loader = LXLoader(**args)
 
+
 #%% 
-loader.myData[0]["matched_word_label_ids"]
+loader.myData[0]["input_ids"]
+loader.tokenizer.decode(loader.myData[0]["input_ids"])
+
+#%%
+loader.myData[0]["labels"]
+loader.tag_vocab.id2token(loader.myData[0]["labels"].tolist())
+
+#%%
+loader.tokenizer.decode(loader.myData[0]["input_labels"])
 
 # %%
 predict = NERPredict(**args)
