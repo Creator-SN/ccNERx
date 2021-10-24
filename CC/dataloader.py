@@ -6,6 +6,7 @@ from ICCSupervised.ICCSupervised import IDataLoader
 from torch.utils.data import TensorDataset, DataLoader, Dataset
 from CC.loaders.cn_loader import CNDataLoader
 from CC.loaders.le_loader import LLoader
+from CC.loaders.lex_loader import LXLoader
 
 class AutoDataLoader(IDataLoader):
     def __init__(self, **args):
@@ -13,7 +14,8 @@ class AutoDataLoader(IDataLoader):
         self.loader_name = args['loader_name']
         dataloaders = {
             'cn_loader': CNDataLoader,
-            'le_loader': LLoader
+            'le_loader': LLoader,
+            'lex_loader': LXLoader
         }
         if self.loader_name not in dataloaders:
             raise Exception("Dataloader not found name '{}'.".format(self.loader_name))

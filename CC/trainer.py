@@ -182,7 +182,7 @@ class NERTrainer(ITrainer):
             if self.eval_data:
                 self.eval()
 
-            self.analysis.save_csv(
+            self.analysis.save_ner_record(
                 uid=current_uid if self.task_name is None else self.task_name)
             yield (epoch + 1, self.analysis.train_record, self.analysis.eval_record, self.analysis.model_record, model_uid)
 

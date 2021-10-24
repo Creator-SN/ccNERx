@@ -14,7 +14,7 @@ from CC.model import CCNERModel
 from CC.loaders.utils import *
 
 
-class NERTrainer(ITrainer):
+class NERPreTrainer(ITrainer):
 
     def __init__(self, **args):
         assert "num_epochs" in args, "argument num_epochs: required embeding file path"
@@ -22,6 +22,9 @@ class NERTrainer(ITrainer):
         self.loader_name = 'lex_loader'
         if "loader_name" in args:
             self.loader_name = args["loader_name"]
+        self.model_name = 'Bert'
+        if "model_name" in args:
+            self.loader_name = args["model_name"]
 
         self.num_epochs = args['num_epochs']
         self.num_gpus = args['num_gpus']
@@ -30,8 +33,9 @@ class NERTrainer(ITrainer):
         self.task_name = args['task_name']
 
     def model_init(self, **args):
+        config = BertConfig.from_json_file(args['bert_config_file_name'])
         self.model = BertForMaskedLM.from_pretrained(
-            args['bert_config_file_name'])
+            args['pretrained_file_name'], config=config)
 
     def dataloader_init(self, **args):
         self.dataloader = AutoDataLoader(**args)
@@ -46,10 +50,6 @@ class NERTrainer(ITrainer):
             self.analysis = CCAnalysis(
                 self.tag_vocab.token2id, self.tag_vocab.id2token)
 
-        if self.output_eval is not None:
-            self.eval_set = result['eval_set']
-            self.eval_iter = result['eval_iter']
-
     def train(self, lr=1e-4):
 
         optimizer = optim.AdamW(self.model.parameters(),
@@ -61,12 +61,10 @@ class NERTrainer(ITrainer):
 
         self.model.to(device)
 
-        current_uid = str(uuid.uuid1()).split('-')[0]
-
         train_step = 0
         for epoch in range(self.num_epochs):
             train_count = 0
-            train_loss = 0
+            train_loss = []
             train_iter = tqdm(self.train_iter)
             self.model.train()
             for it in train_iter:
@@ -76,28 +74,29 @@ class NERTrainer(ITrainer):
                     it[key] = self.cuda(it[key])
 
                 outputs = self.model(input_ids=it['input_ids'], attention_mask=it['attention_mask'],
-                                     token_type_ids=it['token_type_ids'], labels=it['labels'])
+                                     token_type_ids=it['token_type_ids'], labels=it['input_labels'])
                 loss = outputs.loss
+                loss = loss.mean()
 
                 loss.backward()
                 optimizer.step()
                 scheduler.step()  # Update learning rate schedule
                 self.model.zero_grad()
 
-                train_loss += loss.data.item()
+                train_loss.append(loss.data.item())
                 train_count += 1
 
                 train_iter.set_description(
                     'Epoch: {}/{} Train'.format(epoch + 1, self.num_epochs))
-                train_iter.set_postfix(train_loss=train_loss / train_count)
+                train_iter.set_postfix(train_loss=np.mean(train_loss))
                 self.analysis.append_train_record({
                     'loss': loss.data.item()
                 })
 
             model_uid = self.save_model(train_step)
 
-            self.analysis.save_csv(
-                uid=current_uid if self.task_name is None else self.task_name)
+            self.analysis.save_csv('./data_record/{}'.format(self.task_name),
+                                   '{}.csv'.format(self.model_name), loss=train_loss)
             yield (epoch + 1, self.analysis.train_record, model_uid)
 
     def save_model(self, current_step=0):

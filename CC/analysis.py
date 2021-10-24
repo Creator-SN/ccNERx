@@ -69,7 +69,7 @@ class CCAnalysis(IAnalysis):
                     gold_num += 1
         return gold_num
     
-    def save_csv(self, uid):
+    def save_ner_record(self, uid):
         if not os.path.exists('./data_record'):
             os.makedirs('./data_record')
         with open('./data_record/{}_train.csv'.format(uid), encoding='utf-8', mode='w+') as f:
@@ -90,3 +90,23 @@ class CCAnalysis(IAnalysis):
                 result += '{}\n'.format(item)
             f.write(result)
         return uid
+    
+    @staticmethod
+    def save_csv(dir, file_name, **args):
+        if not os.path.isdir(dir):
+            os.makedirs(dir)
+        result = ''
+        dicts = []
+        for key in args.keys():
+            dicts.append(key)
+            result = key if result == '' else result + '\t{}'.format(key)
+        length = len(args[dicts[0]])
+        result += '\n'
+        for i in range(length):
+            t = True
+            for key in args.keys():
+                result += str(args[key][i]) if t else '\t{}'.format(args[key][i])
+                t = False
+            result += '\n'
+        with open('{}/{}.csv'.format(dir, file_name), encoding='utf-8', mode='w+') as f:
+            f.write(result)
