@@ -11,7 +11,7 @@ class WordEmbedding():
         self.dimension = -1
 
     def build_from_txt(self, embedding_path: str, max_scan_num: int = 1000000, add_seg_vocab: bool = False):
-        line_totals = FileUtil.count_lines(embedding_path,show_progress=True)
+        line_totals = FileUtil.count_lines(embedding_path, show_progress=True)
         if add_seg_vocab or max_scan_num < 0:
             max_scan_num = line_totals
         else:
@@ -58,7 +58,7 @@ class VocabEmbedding():
         embedding = {}
         if embedding_path is not None:
             embedding, self.dimension = WordEmbedding().build_from_txt(
-                embedding_path).get_embedding()
+                embedding_path, max_scan_num=max_scan_num, add_seg_vocab=add_seg_vocab).get_embedding()
         self.embedding = np.empty([self.vocab.size, self.dimension])
         for idx, word in tqdm(enumerate(self.vocab.idx2item), desc="load vocab embedding"):
             if word in embedding:
