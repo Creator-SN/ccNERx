@@ -155,6 +155,7 @@ class LEXBertDataSet(Dataset):
             prompts = []
             prompt_masks = []
             prompt_tags = []
+            prompt_origins = []
             word = []
             labels = []
             exist_prompt = set()
@@ -162,29 +163,32 @@ class LEXBertDataSet(Dataset):
                 if label != self.default_tag:
                     if label.startswith('B-'):
                         if len(word) != 0:
-                            prompt, prompt_mask, prompt_tag = self.tag_convert.tag2prompt(
+                            prompt, prompt_mask, prompt_tag, prompt_origin = self.tag_convert.tag2prompt(
                                 labels, word)
-                            key = hash(str(prompt))
+                            key = hash(str(prompt_origin))
                             if key not in exist_prompt:
                                 exist_prompt.add(key)
                                 prompts.append(prompt)
                                 prompt_masks.append(prompt_mask)
                                 prompt_tags.append(prompt_tag)
+                                prompt_origins.append(prompt_origin)
                             word = []
                             labels = []
                     word.append(ch)
                     labels.append(label)
             if len(word) != 0:
-                prompt, prompt_mask, prompt_tag = self.tag_convert.tag2prompt(
+                prompt, prompt_mask, prompt_tag, prompt_origin = self.tag_convert.tag2prompt(
                     labels, word)
-                key = hash(str(prompt))
+                key = hash(str(prompt_origin))
                 if key not in exist_prompt:
                     exist_prompt.add(key)
                     prompts.append(prompt)
                     prompt_masks.append(prompt_mask)
                     prompt_tags.append(prompt_tag)
+                    prompt_origins.append(prompt_origin)
             # resolve input
             text = ["[CLS]"] + item["text"][:self.max_seq_length-2]+["[SEP]"]
+            origin_text = text[:]
             text_origin_length = len(text)
 
             matched_words = self.lexicon_tree.getAllMatchedWordList(
@@ -196,30 +200,33 @@ class LEXBertDataSet(Dataset):
                     # if the word tag is "O", skip...
                     if tag[0] == self.default_tag:
                         continue
-                    prompt, prompt_mask, prompt_tag = self.tag_convert.tag2prompt(
+                    prompt, prompt_mask, prompt_tag, prompt_origin = self.tag_convert.tag2prompt(
                         tag, word)
-                    key = hash(str(prompt))
+                    key = hash(str(prompt_origin))
                     if key not in exist_prompt:
                         exist_prompt.add(key)
                         prompts.append(prompt)
                         prompt_masks.append(prompt_mask)
                         prompt_tags.append(prompt_tag)
+                        prompt_origins.append(prompt_origin)
 
             label = [self.default_tag] + \
                 item["label"][:self.max_seq_length-2]+[self.default_tag]
             mask = [1 for _ in text]
-            for prompt, prompt_mask, prompt_tag in zip(prompts, prompt_masks, prompt_tags):
+            for prompt, prompt_mask, prompt_tag, prompt_origin in zip(prompts, prompt_masks, prompt_tags, prompt_origins):
                 if len(text)+len(prompt) <= self.max_seq_length:
                     text += prompt
                     label += prompt_tag
                     mask += prompt_mask
+                    origin_text += prompt_origin
 
             # convert to ids
             token_ids = self.tokenizer.convert_tokens_to_ids(text)
             label_ids = self.tag_vocab.token2id(label)
+            origin_text = self.tokenizer.convert_tokens_to_ids(origin_text)
 
             labels = []
-            for m, token_id in zip(mask, token_ids):
+            for m, token_id in zip(mask, origin_text):
                 if m == 0:
                     labels.append(token_id)
                 else:
