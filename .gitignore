@@ -2,6 +2,7 @@
 **/**/__pycache__
 model/
 save_model/
+save_pretrained/
 data/
 ner/bert/
 temp/
