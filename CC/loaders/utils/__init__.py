@@ -6,3 +6,4 @@ from CC.loaders.utils.vocab_tag import *
 from CC.loaders.utils.embedding import *
 from CC.loaders.utils.parser import *
 from CC.loaders.utils.tag_convert import *
+from CC.loaders.utils.label_collections import *

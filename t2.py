@@ -1,7 +1,10 @@
 # %%
+import random
+from transformers import BertTokenizer
 from CC.loaders import *
 import pickle
 from tqdm import *
+from CC.loaders import label_loader
 from CC.loaders.utils import *
 import json
 from CC.predicter import NERPredict
@@ -60,15 +63,15 @@ args = {
 loader = LXLoader(**args)
 
 
-#%% 
+# %%
 loader.myData[0]["input_ids"]
 loader.tokenizer.decode(loader.myData[0]["input_ids"])
 
-#%%
+# %%
 loader.myData[0]["labels"]
 loader.tag_vocab.id2token(loader.myData[0]["labels"].tolist())
 
-#%%
+# %%
 loader.tokenizer.decode(loader.myData[0]["input_labels"])
 
 # %%
@@ -162,7 +165,6 @@ a = {
 
 print(add(**a))
 
-
 # %%
 
 a = [1, 2, 3]
@@ -171,8 +173,24 @@ b = [2, 3, 4]
 for a, b in zip(a, b):
     print(a, b)
 # %%
-from transformers import BertTokenizer
 bt = BertTokenizer.from_pretrained("./data/bert/chinese_wwm_ext/")
 # %%
 bt("a sentences. Hello world!")
+# %%
+
+s = set([1, 2, 3, 4, 5, 6, 7, 1233])
+random.sample(s, 5)
+# %%
+s = [1, 2, 3, 4, 5]
+s[1:3] = [1]
+s
+# %%
+from CC.loaders import *
+loader = LabelLoader(**{
+    "debug":True,
+    "file_name":"data/weibo/train.json",
+    "random_rate":0.2,
+    "expansion_rate":5
+}).to_file("./temp/train.json")
+
 # %%
