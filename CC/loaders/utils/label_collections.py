@@ -28,10 +28,10 @@ class LabelCollection():
         for index, (ch, label) in enumerate(zip(text, labels)):
             label = label.split("-")
             real_label = "-".join(label[1:])
-            if label[0] == self.default_label or label[0] == "B":
+            if label[0] == self.default_label or label[0] == "B" or label[0] == "S":
                 if cur_label is not None:
                     key = hash(str(word)+cur_label)
-                    if key not in label_text_set and start!=-1:
+                    if key not in label_text_set and start != -1 and len(word) > 0:
                         label_text_set.add(key)
                         span = LabelSpan()
                         span.label = cur_label
@@ -44,6 +44,9 @@ class LabelCollection():
                 if label[0] == "B":
                     start = index
                     cur_label = real_label
+                else:
+                    start = -1
+                    cur_label = None
             if label[0] != self.default_label:
                 word.append(ch)
         # remove guard
@@ -62,14 +65,14 @@ class LabelCollection():
             for ch, label in zip(text, labels):
                 if label != self.default_label:
                     label = label.split('-')
-                    if label[0] == 'B':
+                    if label[0] == 'B' or label[0] == "S":
                         label_str = '-'.join(label[1:])
                         if cur_label is not None:
                             if cur_label not in self.labels:
                                 self.labels[cur_label] = []
                                 self.lables_set[cur_label] = set()
                             key = "".join(word)
-                            if key not in self.lables_set[cur_label]:
+                            if key not in self.lables_set[cur_label] and len(word) > 0:
                                 self.lables_set[cur_label].add(key)
                                 self.labels[cur_label].append(word)
                             word = []

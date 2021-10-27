@@ -18,20 +18,25 @@ class LabelLoader(IDataLoader):
             .add_argument("file_name", str) \
             .add_argument("random_rate", float, defaultValue=1.0) \
             .add_argument("expansion_rate", int, defaultValue=1) \
+            .add_argument("auto_loader",bool,defaultValue=True) \
             .parse(self, **args)
-        self.read_data_set(self.file_name, self.random_rate) \
-            .process_data(self.expansion_rate)
+        if self.auto_loader:
+            self.read_data_set(self.file_name, self.random_rate) \
+                .process_data(self.expansion_rate)
 
     def __call__(self):
         return self.items
 
     def to_file(self, file_name):
+        d = os.path.dirname(file_name)
+        if not os.path.exists(d):
+            os.mkdir(d)
         with open(file_name, "w", encoding="utf-8") as f:
             for text, label in self.items:
                 line = json.dumps({
                     "text": text,
                     "label": label
-                },ensure_ascii=False)
+                }, ensure_ascii=False)
                 f.write(f"{line}\n")
         return self
 
@@ -57,7 +62,7 @@ class LabelLoader(IDataLoader):
     def verify_data(self):
         return self
 
-    def process_data(self, expansion_rate: int = 1) -> List[Tuple[str, str]]:
+    def process_data(self, expansion_rate: int = 1) :
         if getattr(self, "items", None) is None:
             raise ValueError("run read_data_set firstly!")
         new_items = []
@@ -91,6 +96,7 @@ class LabelLoader(IDataLoader):
                     temp_label = [
                         f"I-{span.label}" for _ in sample_text]
                     temp_label[0] = f"B-{span.label}"
+                    temp_label[-1] = new_label[span.end-1]
                     new_label[span.start:span.end] = temp_label
                     assert len(new_text) == len(
                         new_label), f"text:{new_text}\nlabel:{new_label}"
@@ -103,4 +109,4 @@ class LabelLoader(IDataLoader):
                     sample_set.add(k)
                     new_items.append((new_text, new_label))
         self.items = new_items
-        return new_items
+        return self

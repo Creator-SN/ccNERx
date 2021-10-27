@@ -4,11 +4,9 @@ from transformers import BertTokenizer
 from CC.loaders import *
 import pickle
 from tqdm import *
-from CC.loaders import label_loader
 from CC.loaders.utils import *
 import json
 from CC.predicter import NERPredict
-from CC.trainer import NERTrainer
 
 # %%
 args = {
@@ -185,12 +183,13 @@ s = [1, 2, 3, 4, 5]
 s[1:3] = [1]
 s
 # %%
-from CC.loaders import *
 loader = LabelLoader(**{
-    "debug":True,
-    "file_name":"data/weibo/train.json",
-    "random_rate":0.2,
-    "expansion_rate":5
-}).to_file("./temp/train.json")
+    "auto_loader": False,
+    "debug": True,
+    "file_name": "data/weibo/train.json",
+    "random_rate": 0.2,
+    "expansion_rate": 10
+}).read_data_set("data/weibo/train.json", 0.2).to_file("./data/weibonew/train_origin.json") \
+    .process_data(50).to_file("./data/weibonew/train.json")
 
 # %%
