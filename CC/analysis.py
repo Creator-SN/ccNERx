@@ -1,5 +1,4 @@
 import os
-import uuid
 from ICCSupervised.ICCSupervised import IAnalysis
 
 class CCAnalysis(IAnalysis):

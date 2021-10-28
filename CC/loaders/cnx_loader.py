@@ -5,7 +5,7 @@ from ICCSupervised.ICCSupervised import IDataLoader
 from torch.utils.data import DataLoader, Dataset
 
 
-class CNDataLoader(IDataLoader):
+class CNXDataLoader(IDataLoader):
     def __init__(self, **args):
         assert "train_file" in args, "argument train_file required"
         assert "bert_vocab_file" in args, "argument bert_vocab_file required"
