@@ -10,27 +10,41 @@ class CNXDataLoader(IDataLoader):
         assert "train_file" in args, "argument train_file required"
         assert "bert_vocab_file" in args, "argument bert_vocab_file required"
         assert "tag_file" in args, "argument tag_file required"
+        assert "tag_rules" in args, "argument tag_rules required"
+
         self.output_eval = False
         if "eval_file" in args:
             self.output_eval = True
+
         self.word_tag_split = ' '
         if "word_tag_split" in args:
             self.word_tag_split = args['word_tag_split']
+
         self.eval_file = None
         if "eval_file" in args:
             self.eval_file = args['eval_file']
+
         self.pattern = '， O'
         if "pattern" in args:
             self.pattern = args['pattern']
+
         self.max_seq_length = 50
         if "max_seq_length" in args:
             self.max_seq_length = args['max_seq_length']
+
+        self.use_json = False
+        if "use_json" in args:
+            self.use_json = args['use_json']
+
         self.batch_size = 32
         if "batch_size" in args:
             self.batch_size = args['batch_size']
+
         self.eval_batch_size = None
         if "eval_batch_size" in args:
             self.eval_batch_size = args['eval_batch_size']
+
+        self.tag_rules = args['tag_rules']
         self.read_data_set(args['train_file'], self.eval_file,
                            self.word_tag_split, self.pattern)
         self.data_manager_init(args['bert_vocab_file'], args['tag_file'])
@@ -45,21 +59,27 @@ class CNXDataLoader(IDataLoader):
     '''
 
     def data_manager_init(self, bert_vocab_file, tag_file):
-        tags_list = BERTDataManager.ReadTagsList(tag_file)
-        tags_list = [tags_list]
-        self.dm = BERTDataManager(tags_list=tags_list,
-                                  vocab_file_name=bert_vocab_file)
+        tags_list = DataManager.ReadTagsList(tag_file)
+        self.dm = DataManager(tags_list=tags_list,
+                              vocab_file_name=bert_vocab_file)
 
     '''
     读取数据
     '''
 
     def read_data_set(self, train_file, eval_file=None, word_tag_split=' ', pattern='， O'):
-        self.train_set, self.train_tags = BERTDataManager.ReadDataExtremely(
-            train_file, word_tag_split, pattern)
-        if eval_file is not None:
-            self.eval_set, self.eval_tags = BERTDataManager.ReadDataExtremely(
-                eval_file, word_tag_split, pattern)
+        if self.use_json:
+            self.train_set, self.train_tags = DataManager.ReadJsonData(
+                train_file)
+            if eval_file is not None:
+                self.eval_set, self.eval_tags = DataManager.ReadJsonData(
+                    eval_file)
+        else:
+            self.train_set, self.train_tags = DataManager.ReadDataExtremely(
+                train_file, word_tag_split, pattern)
+            if eval_file is not None:
+                self.eval_set, self.eval_tags = DataManager.ReadDataExtremely(
+                    eval_file, word_tag_split, pattern)
 
     '''
     验证数据
@@ -84,12 +104,12 @@ class CNXDataLoader(IDataLoader):
 
     def process_data(self, padding_length, batch_size, eval_batch_size):
         eval_batch_size = batch_size if eval_batch_size is None else eval_batch_size
-        self.myData = CCNERDataset(
-            self.train_set, self.train_tags, self.dm, padding_length)
+        self.myData = CNXDataset(
+            self.train_set, self.train_tags, self.dm, self.tag_rules, padding_length)
         self.dataiter = DataLoader(self.myData, batch_size=batch_size)
         if self.output_eval:
-            self.myData_eval = CCNERDataset(
-                self.eval_set, self.eval_tags, self.dm, padding_length)
+            self.myData_eval = CNXDataset(
+                self.eval_set, self.eval_tags, self.dm, self.tag_rules, padding_length)
             self.dataiter_eval = DataLoader(
                 self.myData_eval, batch_size=eval_batch_size)
 
@@ -110,51 +130,81 @@ class CNXDataLoader(IDataLoader):
             }
 
 
-class CCNERDataset(Dataset):
-    def __init__(self, sentences_list, tags_list, data_manager, padding_length=100):
+class CNXDataset(Dataset):
+    def __init__(self, sentences_list, tags_list, data_manager, tag_rules, padding_length=100):
         self.sentences, self.tags_list = sentences_list, tags_list
+        self.tag_rules = tag_rules
         self.data_manager = data_manager
         self.padding_length = padding_length
+        self.generate_prompt()
+
+    def generate_prompt(self):
+        prompt_inputs = []
+        prompt_labels = []
+        for idx, tags in enumerate(self.tags_list):
+            sentence = self.sentences[idx]
+            prompt_input = []
+            prompt_label = []
+            range_text = ''
+            range_tag = ''
+            for i, tag in enumerate(tags):
+                s = tag.split('-')[0]
+                if s == 'B' or s == 'S':
+                    e = tag.split('-')[1]
+                    if e not in self.tag_rules:
+                        raise('{} is not in the tag_rules'.format(e))
+                    range_tag = self.tag_rules[e]
+                    range_text += sentence[i]
+                elif s == 'I' or s == 'E':
+                    range_text += sentence[i]
+                elif s == 'O':
+                    if range_text == '':
+                        continue
+                    prompt_input += ['[MASK]' for _ in range_text] + \
+                        ['是', '一', '个'] + ['[MASK]' for _ in range_tag] + [';']
+                    prompt_label += [word for word in range_text] + \
+                        [-100, -100, -100] + [word for word in range_tag] + [-100]
+                    range_text = ''
+                    range_tag = ''
+            prompt_inputs.append(prompt_input)
+            prompt_labels.append(prompt_label)
+        self.prompt_inputs = prompt_inputs
+        self.prompt_labels = prompt_labels
 
     def __getitem__(self, idx):
-        sentence, tags = self.data_manager.encode(
-            self.sentences[idx], self.tags_list[idx], padding_length=self.padding_length - 1)
-        sentence = [101] + sentence
-        tags = [self.data_manager.tag_to_idx['[CLS]']] + tags
-        for i, _ in enumerate(sentence):
-            if _ == 0:
-                sentence[i] = 102
-                tags[i] = self.data_manager.tag_to_idx['[SEP]']
-                break
-        sentence = torch.tensor(sentence)
-        tags = torch.tensor(tags)
+        input_ids = self.sentences[idx] + ['[SEP]'] + self.prompt_inputs[idx]
+        input_ids = [self.data_manager.wordToIdx(word) for word in input_ids]
+        input_ids = [101] + input_ids
+
+        labels = [-100 for _ in input_ids]
+        if len(self.prompt_labels[idx]) > 0:
+            labels[-len(self.prompt_labels[idx]):] = self.prompt_labels[idx]
+        labels = [self.data_manager.wordToIdx(word) if word != -100 else -100 for word in labels]
+
+        token_type_ids = [0 for _ in input_ids]
+        for i in range(len(self.sentences[idx]) + 1, len(token_type_ids)):
+            token_type_ids[i] = 1
+        if len(input_ids) > self.padding_length:
+            input_ids = input_ids[:self.padding_length]
+            labels = labels[:self.padding_length]
+            token_type_ids = token_type_ids[:self.padding_length]
+        else:
+            remain = self.padding_length - len(input_ids)
+            for i in range(remain):
+                input_ids.append(self.data_manager.wordToIdx('[PAD]'))
+                labels.append(-100)
+                token_type_ids.append(1)
+        
+        sentence = torch.tensor(input_ids)
+        tags = torch.tensor(labels)
+        token_type_ids = torch.tensor(token_type_ids)
         return {
             'input_ids': sentence,
             'attention_mask': sentence.gt(0),
+            'token_type_ids': token_type_ids,
+            'input_labels': tags,
             'labels': tags
         }
 
     def __len__(self):
         return len(self.sentences)
-
-
-class BERTDataManager(DataManager):
-    @staticmethod
-    def TagIdxInit(tags_list, pad_tag='[PAD]'):
-        count = 1
-        tag_to_idx = {}
-        idx_to_tag = {}
-        tag_to_idx[pad_tag] = 0
-        idx_to_tag[0] = pad_tag
-        for item in tags_list:
-            for tag in item:
-                if tag not in tag_to_idx:
-                    tag_to_idx[tag] = count
-                    idx_to_tag[count] = tag
-                    count += 1
-        tag_to_idx['[CLS]'] = count
-        idx_to_tag[count] = '[CLS]'
-        count += 1
-        tag_to_idx['[SEP]'] = count
-        idx_to_tag[count] = '[SEP]'
-        return tag_to_idx, idx_to_tag

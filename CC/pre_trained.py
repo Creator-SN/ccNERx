@@ -24,7 +24,7 @@ class NERPreTrainer(ITrainer):
             self.loader_name = args["loader_name"]
         self.model_name = 'Bert'
         if "model_name" in args:
-            self.loader_name = args["model_name"]
+            self.model_name = args["model_name"]
 
         self.num_epochs = args['num_epochs']
         self.num_gpus = args['num_gpus']
@@ -49,6 +49,10 @@ class NERPreTrainer(ITrainer):
             self.tag_size = self.tag_vocab.__len__()
             self.analysis = CCAnalysis(
                 self.tag_vocab.token2id, self.tag_vocab.id2token)
+        elif self.loader_name == 'cnx_loader':
+            self.dm = result['dm']
+            self.tag_size = len(self.dm.tag_to_idx)
+            self.analysis = CCAnalysis(self.dm.tagToIdx, self.dm.idxToTag)
 
     def train(self, lr=1e-4):
 

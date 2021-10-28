@@ -10,27 +10,39 @@ class CNDataLoader(IDataLoader):
         assert "train_file" in args, "argument train_file required"
         assert "bert_vocab_file" in args, "argument bert_vocab_file required"
         assert "tag_file" in args, "argument tag_file required"
+        
         self.output_eval = False
         if "eval_file" in args:
             self.output_eval = True
+
         self.word_tag_split = ' '
         if "word_tag_split" in args:
             self.word_tag_split = args['word_tag_split']
+
         self.eval_file = None
         if "eval_file" in args:
             self.eval_file = args['eval_file']
+
         self.pattern = '， O'
         if "pattern" in args:
             self.pattern = args['pattern']
+
         self.max_seq_length = 50
         if "max_seq_length" in args:
             self.max_seq_length = args['max_seq_length']
+
+        self.use_json = False
+        if "use_json" in args:
+            self.use_json = args['use_json']
+
         self.batch_size = 32
         if "batch_size" in args:
             self.batch_size = args['batch_size']
+
         self.eval_batch_size = None
         if "eval_batch_size" in args:
             self.eval_batch_size = args['eval_batch_size']
+            
         self.read_data_set(args['train_file'], self.eval_file,
                            self.word_tag_split, self.pattern)
         self.data_manager_init(args['bert_vocab_file'], args['tag_file'])
@@ -45,9 +57,8 @@ class CNDataLoader(IDataLoader):
     '''
 
     def data_manager_init(self, bert_vocab_file, tag_file):
-        tags_list = BERTDataManager.ReadTagsList(tag_file)
-        tags_list = [tags_list]
-        self.dm = BERTDataManager(tags_list=tags_list,
+        tags_list = DataManager.ReadTagsList(tag_file)
+        self.dm = DataManager(tags_list=tags_list,
                                   vocab_file_name=bert_vocab_file)
 
     '''
@@ -55,11 +66,18 @@ class CNDataLoader(IDataLoader):
     '''
 
     def read_data_set(self, train_file, eval_file=None, word_tag_split=' ', pattern='， O'):
-        self.train_set, self.train_tags = BERTDataManager.ReadDataExtremely(
-            train_file, word_tag_split, pattern)
-        if eval_file is not None:
-            self.eval_set, self.eval_tags = BERTDataManager.ReadDataExtremely(
-                eval_file, word_tag_split, pattern)
+        if self.use_json:
+            self.train_set, self.train_tags = DataManager.ReadJsonData(
+                train_file)
+            if eval_file is not None:
+                self.eval_set, self.eval_tags = DataManager.ReadJsonData(
+                    eval_file)
+        else:
+            self.train_set, self.train_tags = DataManager.ReadDataExtremely(
+                train_file, word_tag_split, pattern)
+            if eval_file is not None:
+                self.eval_set, self.eval_tags = DataManager.ReadDataExtremely(
+                    eval_file, word_tag_split, pattern)
 
     '''
     验证数据
@@ -84,11 +102,11 @@ class CNDataLoader(IDataLoader):
 
     def process_data(self, padding_length, batch_size, eval_batch_size):
         eval_batch_size = batch_size if eval_batch_size is None else eval_batch_size
-        self.myData = CCNERDataset(
+        self.myData = CNDataset(
             self.train_set, self.train_tags, self.dm, padding_length)
         self.dataiter = DataLoader(self.myData, batch_size=batch_size)
         if self.output_eval:
-            self.myData_eval = CCNERDataset(
+            self.myData_eval = CNDataset(
                 self.eval_set, self.eval_tags, self.dm, padding_length)
             self.dataiter_eval = DataLoader(
                 self.myData_eval, batch_size=eval_batch_size)
@@ -110,7 +128,7 @@ class CNDataLoader(IDataLoader):
             }
 
 
-class CCNERDataset(Dataset):
+class CNDataset(Dataset):
     def __init__(self, sentences_list, tags_list, data_manager, padding_length=100):
         self.sentences, self.tags_list = sentences_list, tags_list
         self.data_manager = data_manager
@@ -120,11 +138,11 @@ class CCNERDataset(Dataset):
         sentence, tags = self.data_manager.encode(
             self.sentences[idx], self.tags_list[idx], padding_length=self.padding_length - 1)
         sentence = [101] + sentence
-        tags = [self.data_manager.tag_to_idx['[CLS]']] + tags
+        tags = [self.data_manager.tag_to_idx['O']] + tags
         for i, _ in enumerate(sentence):
             if _ == 0:
                 sentence[i] = 102
-                tags[i] = self.data_manager.tag_to_idx['[SEP]']
+                tags[i] = self.data_manager.tag_to_idx['O']
                 break
         sentence = torch.tensor(sentence)
         tags = torch.tensor(tags)
@@ -136,25 +154,3 @@ class CCNERDataset(Dataset):
 
     def __len__(self):
         return len(self.sentences)
-
-
-class BERTDataManager(DataManager):
-    @staticmethod
-    def TagIdxInit(tags_list, pad_tag='[PAD]'):
-        count = 1
-        tag_to_idx = {}
-        idx_to_tag = {}
-        tag_to_idx[pad_tag] = 0
-        idx_to_tag[0] = pad_tag
-        for item in tags_list:
-            for tag in item:
-                if tag not in tag_to_idx:
-                    tag_to_idx[tag] = count
-                    idx_to_tag[count] = tag
-                    count += 1
-        tag_to_idx['[CLS]'] = count
-        idx_to_tag[count] = '[CLS]'
-        count += 1
-        tag_to_idx['[SEP]'] = count
-        idx_to_tag[count] = '[SEP]'
-        return tag_to_idx, idx_to_tag

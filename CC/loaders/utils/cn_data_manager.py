@@ -1,4 +1,5 @@
 import re
+import json
 import random
 
 class DataManager():
@@ -8,7 +9,7 @@ class DataManager():
             self.word_to_idx, self.idx_to_word = self.WordIdxFromVocabInit(vocab_file_name)
         else:
             self.word_to_idx, self.idx_to_word = self.WordIdxInit(sentences, pad_tag)
-        self.tag_to_idx, self.idx_to_tag = self.TagIdxInit(tags_list, pad_tag)
+        self.tag_to_idx, self.idx_to_tag = self.TagIdxInit(tags_list)
     
     def wordToIdx(self, word):
         try:
@@ -41,7 +42,7 @@ class DataManager():
         sentence = [self.idx_to_word[idx] for idx in sentence]
         tags = [self.idx_to_tag[idx] for idx in tags]
         count = 0
-        for i in tags:
+        for i in sentence:
             count += 1
             if i == pad_tag:
                 break
@@ -84,27 +85,24 @@ class DataManager():
         return word_to_idx, idx_to_word
 
     @staticmethod
-    def TagIdxInit(tags_list, pad_tag='[PAD]'):
-        count = 1
+    def TagIdxInit(tags_list):
+        count = 0
         tag_to_idx = {}
         idx_to_tag = {}
-        tag_to_idx[pad_tag] = 0
-        idx_to_tag[0] = pad_tag
-        for item in tags_list:
-            for tag in item:
-                if tag not in tag_to_idx:
-                    tag_to_idx[tag] = count
-                    idx_to_tag[count] = tag
-                    count += 1
+        for tag in tags_list:
+            if tag not in tag_to_idx:
+                tag_to_idx[tag] = count
+                idx_to_tag[count] = tag
+                count += 1
         return tag_to_idx, idx_to_tag
 
-    '''
-    读取数据
-    file_name: 文件路径
-    word_tag_split: 单词标签间隔符, 默认是空格
-    '''
     @staticmethod
     def ReadData(file_name, word_tag_split=' '):
+        '''
+        读取数据
+        file_name: source file name.
+        word_tag_split: the tag between word and tag according to the CONLL format.
+        '''
         sentences = []
         tags_list = []
         with open(file_name, encoding='utf-8') as f:
@@ -129,6 +127,11 @@ class DataManager():
     '''
     @staticmethod
     def ReadDataExtremely(file_name, word_tag_split=' ', pattern='， O'):
+        '''
+        file_name: source file name.
+        word_tag_split: the tag between word and tag according to the CONLL format.
+        pattern: you can set a pattern like the default value to split the dataset into more segments.
+        '''
         sentences = []
         tags_list = []
         with open(file_name, encoding='utf-8') as f:
@@ -148,6 +151,28 @@ class DataManager():
             else:
                 sentence.append(arr[0])
                 tags.append(arr[1])
+        return sentences, tags_list
+    
+    @staticmethod
+    def ReadJsonData(file_name):
+        '''
+        file_name: source file name.
+        Example:
+        {"text": ["科", "技", "全", "方", "位", "资", "讯", "智", "能", "，", "快", "捷", "的", "汽", "车", "生", "活", "需", "要", "有", "三", "屏", "一", "云", "爱", "你"], "label": ["O", "O", "O", "O", "O", "O", "O", "O", "O", "O", "O", "O", "O", "O", "O", "O", "O", "O", "O", "O", "O", "O", "O", "O", "O", "O"]}
+        '''
+        sentences = []
+        tags_list = []
+        with open(file_name, encoding='utf-8') as f:
+            ori_list = f.read().split('\n')
+        if ori_list[-1] == '':
+            ori_list = ori_list[:-1]
+        ori_list = [json.loads(line) for line in ori_list]
+        
+        for line in ori_list:
+            sentence = line['text']
+            tags = line['label']
+            sentences.append(sentence)
+            tags_list.append(tags)
         return sentences, tags_list
     
     '''
@@ -170,6 +195,8 @@ class DataManager():
     def ReadTagsList(file_name):
         with open(file_name, encoding='utf-8') as f:
             tags_list = f.read().split('\n')
+        if tags_list[-1] == '':
+            tags_list = tags_list[:-1]
         return tags_list
     
     '''
@@ -201,7 +228,7 @@ class DataManager():
             remain = padding_length - len(sentence)
             for i in range(remain):
                 sentence.append(pad_tag)
-                tags.append(pad_tag)
+                tags.append('O')
         else:
             sentence = sentence[:padding_length]
             tags = tags[:padding_length]

@@ -4,6 +4,7 @@ from torch.autograd import Variable
 from ICCSupervised.ICCSupervised import IDataLoader
 from torch.utils.data import TensorDataset, DataLoader, Dataset
 from CC.loaders.cn_loader import CNDataLoader
+from CC.loaders.cnx_loader import CNXDataLoader
 from CC.loaders.le_loader import LLoader
 from CC.loaders.lex_loader import LXLoader
 
@@ -13,6 +14,7 @@ class AutoDataLoader(IDataLoader):
         self.loader_name = args['loader_name']
         dataloaders = {
             'cn_loader': CNDataLoader,
+            'cnx_loader': CNXDataLoader,
             'le_loader': LLoader,
             'lex_loader': LXLoader
         }

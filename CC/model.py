@@ -59,6 +59,8 @@ class BertBaseModel(BertPreTrainedModel):
             'input_ids': args['input_ids'],
             'attention_mask': args['attention_mask']
         }
+        if 'token_type_ids' in args:
+            input['token_type_ids'] = args['token_type_ids']
         outputs = self.bert(**input)
         return {
             'mix_output': outputs.last_hidden_state,
