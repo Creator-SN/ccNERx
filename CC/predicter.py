@@ -5,7 +5,6 @@ import torch.nn as nn
 import torch.optim as optim
 from transformers import BertConfig, BertTokenizer, BertModel
 from ICCSupervised.ICCSupervised import IPredict
-from CC.loaders.cn_loader import BERTDataManager
 from CC.loaders import *
 from CC.loaders.utils import *
 from CC.model import *
