@@ -188,8 +188,8 @@ loader = LabelLoader(**{
     "debug": True,
     "file_name": "data/weibo/train.json",
     "random_rate": 0.2,
-    "expansion_rate": 10
+    "expansion_rate": 20
 }).read_data_set("data/weibo/train.json", 0.2).to_file("./data/weibonew/train_origin.json") \
-    .process_data(50).to_file("./data/weibonew/train.json")
+    .process_data(20).to_file("./data/weibonew/train.json")
 
 # %%

@@ -8,19 +8,15 @@ args = {
     'num_epochs': 30,
     'num_gpus': [0, 1, 2, 3],
     'bert_config_file_name': './model/chinese_wwm_ext/bert_config.json',
-<<<<<<< HEAD
-    'pretrained_file_name': 'data/bert/chinese_wwm_ext/pytorch_model.bin',
-=======
-    'pretrained_file_name': './save_pretrained/Pre_trained/Bert_55580/pytorch_model.bin',
->>>>>>> 6f254570104944ee8dce452b65fe066b90a07b4e
+    'pretrained_file_name': './save_pretrained/Weibo_x20_Pretrained/Bert_2760/pytorch_model.bin',
     'hidden_dim': 300,
     'max_seq_length': 150,
     'max_scan_num': 1000000,
-    'train_file': './data/weibonew/train.json',
-    'eval_file': './data/weibonew/dev.json',
-    'test_file': './data/weibonew/test.json',
+    'train_file': './data/weibonew/train_origin.json',
+    'eval_file': './data/weibo/dev.json',
+    'test_file': './data/weibo/test.json',
     'bert_vocab_file': './model/chinese_wwm_ext/vocab.txt',
-    'tag_file': './data/weibonew/labels.txt',
+    'tag_file': './data/weibo/labels.txt',
     'output_eval': True,
     'loader_name': 'le_loader',
     "word_embedding_file":"./data/tencent/word_embedding.txt",
@@ -30,7 +26,7 @@ args = {
     'eval_batch_size': 64,
     'do_shuffle': True,
     'model_name': 'LEBert',
-    'task_name': 'weibo_new_expand'
+    'task_name': 'weibo_new_02'
 }
 
 # %%
