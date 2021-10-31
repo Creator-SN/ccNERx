@@ -14,11 +14,11 @@ args = {
     'hidden_dim': 300,
     'max_seq_length': 150,
     'max_scan_num': 1000000,
-    'train_file': './data/weibo/train.json',
-    'eval_file': './data/weibo/dev.json',
-    'test_file': './data/weibo/test.json',
+    'train_file': 'data/weibonew/train_origin.json',
+    'eval_file': './data/weibonew/dev.json',
+    'test_file': './data/weibonew/test.json',
     'bert_vocab_file': './model/chinese_wwm_ext/vocab.txt',
-    "bert_model_file": "./save_model/weibo/LEBert/LEBert_845.pth",
+    "bert_model_file": "save_model/weibo_new_origin1/LEBert/LEBert_1020.pth",
     'tag_file': './data/weibo/labels.txt',
     'loader_name': 'le_loader',
     "word_embedding_file": "./data/tencent/word_embedding.txt",
@@ -27,8 +27,8 @@ args = {
     'batch_size': 8,
     'eval_batch_size': 64,
     'model_name': 'LEBert',
-    'task_name': 'weibo',
-    'lstm_crf_model_file': './save_model/weibo/lstm_crf/lstm_crf_845.pth',
+    'task_name': 'weibo_predict_2',
+    'lstm_crf_model_file': 'save_model/weibo_new_origin1/lstm_crf/lstm_crf_1020.pth',
     "use_gpu": True,
 }
 
@@ -54,9 +54,9 @@ for idx, item in enumerate(ori_list):
 if idx % batch_size != 0:
     result += predict(texts[idx - (idx % batch_size):])
 
-with open('./weibo_predict.json', mode='w+') as f:
+with open('./weibo_predict2.json', mode='w+') as f:
     f.write("")
-with open('./weibo_predict.json', mode='a+') as f:
+with open('./weibo_predict2.json', mode='a+') as f:
     for line in result:
         f.write('{}\n'.format(json.dumps({
             'text': line[0],
