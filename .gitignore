@@ -4,6 +4,6 @@ model/
 save_model/
 save_pretrained/
 data/
-data_record/
+data_record/**
 ner/bert/
 temp/

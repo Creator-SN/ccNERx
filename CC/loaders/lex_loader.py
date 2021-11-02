@@ -248,45 +248,51 @@ class LEXBertDataSet(Dataset):
             np_labels[:len(labels)] = labels
             np_labels[len(labels):] = -100
 
-            np_matched_word_ids = np.zeros(
-                (self.max_seq_length, self.max_word_num), dtype=np.int)
-            np_matched_word_mask = np.zeros(
-                (self.max_seq_length, self.max_word_num), dtype=np.int)
-            np_matched_word_label_ids = np.zeros(
-                (self.max_seq_length, self.max_word_num), dtype=np.int)
+            np_origin_labels = np.zeros(self.max_seq_length, dtype=np.int)
+            np_origin_labels[:len(origin_text)] = origin_text
+            np_origin_labels[len(labels):] = -100
 
-            for i, words in enumerate(matched_words):
-                words = words[:self.max_word_num]
+            # np_matched_word_ids = np.zeros(
+            #     (self.max_seq_length, self.max_word_num), dtype=np.int)
+            # np_matched_word_mask = np.zeros(
+            #     (self.max_seq_length, self.max_word_num), dtype=np.int)
+            # np_matched_word_label_ids = np.zeros(
+            #     (self.max_seq_length, self.max_word_num), dtype=np.int)
 
-                # convert tag to chinese
-                def convert_to_chinese(tag):
-                    if tag == self.default_tag:
-                        return '<pad>'
-                    else:
-                        return self.tag_rules[tag.split('-')[-1]]
-                tags = [convert_to_chinese(tag[0])
-                        for tag in self.word_vocab.tag(words)]
+            # for i, words in enumerate(matched_words):
+            #     words = words[:self.max_word_num]
 
-                tags = self.word_vocab.token2id(tags)
-                word_ids = self.word_vocab.token2id(words)
+            #     # convert tag to chinese
+            #     def convert_to_chinese(tag):
+            #         if tag == self.default_tag:
+            #             return '<pad>'
+            #         else:
+            #             return self.tag_rules[tag.split('-')[-1]]
+            #     tags = [convert_to_chinese(tag[0])
+            #             for tag in self.word_vocab.tag(words)]
 
-                np_matched_word_ids[i][:len(
-                    word_ids)] = word_ids
-                np_matched_word_mask[i][:len(word_ids)] = 1
-                np_matched_word_label_ids[i][:len(
-                    tags)] = tags
+            #     tags = self.word_vocab.token2id(tags)
+            #     word_ids = self.word_vocab.token2id(words)
+
+            #     np_matched_word_ids[i][:len(
+            #         word_ids)] = word_ids
+            #     np_matched_word_mask[i][:len(word_ids)] = 1
+            #     np_matched_word_label_ids[i][:len(
+            #         tags)] = tags
 
             assert np_input_ids.shape[0] == np_token_type_ids.shape[0]
             assert np_input_ids.shape[0] == np_attention_mask.shape[0]
-            assert np_input_ids.shape[0] == np_matched_word_ids.shape[0]
-            assert np_input_ids.shape[0] == np_matched_word_mask.shape[0]
+            # assert np_input_ids.shape[0] == np_matched_word_ids.shape[0]
+            # assert np_input_ids.shape[0] == np_matched_word_mask.shape[0]
             assert np_input_ids.shape[0] == np_label_ids.shape[0]
             assert np_input_ids.shape[0] == np_labels.shape[0]
-            assert np_matched_word_ids.shape[1] == np_matched_word_mask.shape[1]
-            assert np_matched_word_ids.shape[1] == np_matched_word_label_ids.shape[1]
-            assert np_matched_word_ids.shape[1] == self.max_word_num
+            assert np_input_ids.shape[0] == np_origin_labels.shape[0]
+            # assert np_matched_word_ids.shape[1] == np_matched_word_mask.shape[1]
+            # assert np_matched_word_ids.shape[1] == np_matched_word_label_ids.shape[1]
+            # assert np_matched_word_ids.shape[1] == self.max_word_num
 
-            return np_input_ids, np_token_type_ids, np_attention_mask, np_matched_word_ids, np_matched_word_mask, np_matched_word_label_ids, np_labels, np_label_ids
+            return np_input_ids, np_token_type_ids, np_attention_mask, np_labels, np_origin_labels, np_label_ids
+            # , np_matched_word_ids, np_matched_word_mask, np_matched_word_label_ids, np_labels, np_label_ids
         # TODO: predict
 
         raise NotImplemented("do_predict not implement")
@@ -296,32 +302,36 @@ class LEXBertDataSet(Dataset):
         self.input_token_ids = []
         self.token_type_ids = []
         self.attention_mask = []
-        self.matched_word_ids = []
-        self.matched_word_mask = []
-        self.matched_word_label_ids = []
+        # self.matched_word_ids = []
+        # self.matched_word_mask = []
+        # self.matched_word_label_ids = []
+        self.origin_labels = []
         self.input_labels = []
         self.labels = []
 
         for line in tqdm(FileUtil.line_iter(self.file), desc=f"load dataset from {self.file}", total=line_total):
             line = line.strip()
             data: Dict[str, List[Any]] = json.loads(line)
-            input_token_ids, token_type_ids, attention_mask, matched_word_ids, matched_word_mask, matched_word_label_ids, input_labels,  labels = self.convert_embedding(
+            input_token_ids, token_type_ids, attention_mask, input_labels, origin_label, labels = self.convert_embedding(
                 data)
+            # matched_word_ids, matched_word_mask, matched_word_label_ids,
             self.input_token_ids.append(input_token_ids)
             self.token_type_ids.append(token_type_ids)
             self.attention_mask.append(attention_mask)
-            self.matched_word_ids.append(matched_word_ids)
-            self.matched_word_mask.append(matched_word_mask)
-            self.matched_word_label_ids.append(matched_word_label_ids)
+            self.origin_labels.append(origin_label)
+            # self.matched_word_ids.append(matched_word_ids)
+            # self.matched_word_mask.append(matched_word_mask)
+            # self.matched_word_label_ids.append(matched_word_label_ids)
             self.input_labels.append(input_labels)
             self.labels.append(labels)
         self.size = len(self.input_token_ids)
         self.input_token_ids = np.array(self.input_token_ids)
         self.token_type_ids = np.array(self.token_type_ids)
         self.attention_mask = np.array(self.attention_mask)
-        self.matched_word_ids = np.array(self.matched_word_ids)
-        self.matched_word_mask = np.array(self.matched_word_mask)
-        self.matched_word_label_ids = np.array(self.matched_word_label_ids)
+        self.origin_labels = np.array(self.origin_labels)
+        # self.matched_word_ids = np.array(self.matched_word_ids)
+        # self.matched_word_mask = np.array(self.matched_word_mask)
+        # self.matched_word_label_ids = np.array(self.matched_word_label_ids)
         self.input_labels = np.array(self.input_labels)
         self.labels = np.array(self.labels)
         self.indexes = [i for i in range(self.size)]
@@ -334,9 +344,10 @@ class LEXBertDataSet(Dataset):
             'input_ids': tensor(self.input_token_ids[idx]),
             'attention_mask': tensor(self.attention_mask[idx]),
             'token_type_ids': tensor(self.token_type_ids[idx]),
-            'matched_word_ids': tensor(self.matched_word_ids[idx]),
-            'matched_word_mask': tensor(self.matched_word_mask[idx]),
-            'matched_word_label_ids': tensor(self.matched_word_label_ids[idx]),
+            # 'matched_word_ids': tensor(self.matched_word_ids[idx]),
+            # 'matched_word_mask': tensor(self.matched_word_mask[idx]),
+            # 'matched_word_label_ids': tensor(self.matched_word_label_ids[idx]),
+            'origin_labels': tensor(self.origin_labels[idx]),
             'input_labels': tensor(self.input_labels[idx]),
             'labels': tensor(self.labels[idx])
         }
