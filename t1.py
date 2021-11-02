@@ -8,11 +8,11 @@ args = {
     'num_epochs': 30,
     'num_gpus': [0, 1, 2, 3],
     'bert_config_file_name': './model/chinese_wwm_ext/bert_config.json',
-    'pretrained_file_name': './save_pretrained/Weibo_CNX_Pretrained/Bert_2760/pytorch_model.bin',
+    'pretrained_file_name': './save_pretrained/Pre_trained/Bert_111160/pytorch_model.bin',
     'hidden_dim': 300,
     'max_seq_length': 150,
     'max_scan_num': 1000000,
-    'train_file': './data/weibonew/train_origin.json',
+    'train_file': './data/weibo_yfy/train_origin.json',
     'eval_file': './data/weibo/dev.json',
     'test_file': './data/weibo/test.json',
     'bert_vocab_file': './model/chinese_wwm_ext/vocab.txt',
@@ -26,7 +26,7 @@ args = {
     'eval_batch_size': 64,
     'do_shuffle': True,
     'model_name': 'LEBert',
-    'task_name': 'weibo_new_02'
+    'task_name': 'weibo_new_20_yfy'
 }
 
 # %%
