@@ -21,9 +21,8 @@ args = {
     'eval_file': './data/SuperNER/pre_dev.json',
     'test_file': './data/SuperNER/pre_test.json',
     'bert_vocab_file': './model/chinese_wwm_ext/vocab.txt',
-    "bert_model_file": "./save_model/weibo/LEBert/LEBert_845.pth",
     'tag_file': './data/SuperNER/tags_list.txt',
-    'loader_name': 'le_loader',
+    'loader_name': 'lex_loader',
     "word_embedding_file": "./data/tencent/word_embedding.txt",
     "word_vocab_file": "./data/tencent/tencent_vocab.txt",
     "word_vocab_file_with_tag": "./data/tencent/tencent_vocab_with_tag.json",
@@ -31,8 +30,7 @@ args = {
     'batch_size': 8,
     'eval_batch_size': 64,
     'model_name': 'LEXBert',
-    'task_name': 'Super_LEXBert',
-    'lstm_crf_model_file': './save_model/Super_LEBert/lstm_crf/lstm_crf_14910.pth',
+    'task_name': 'Loader_test',
     "use_gpu": True,
     "debug": True,
     "tag_rules": {
@@ -66,11 +64,10 @@ loader.myData[0]["input_ids"]
 loader.tokenizer.decode(loader.myData[0]["input_ids"])
 
 # %%
-loader.myData[0]["labels"]
 loader.tag_vocab.id2token(loader.myData[0]["labels"].tolist())
 
 # %%
-loader.tokenizer.decode(loader.myData[0]["input_labels"])
+loader.tokenizer.decode(loader.myData[0]["origin_labels"])
 
 # %%
 predict = NERPredict(**args)
