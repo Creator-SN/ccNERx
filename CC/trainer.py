@@ -10,6 +10,7 @@ from ICCSupervised.ICCSupervised import ITrainer
 from CC.dataloader import AutoDataLoader
 from CC.analysis import CCAnalysis
 from CC.model import CCNERModel
+from seqeval.metrics import f1_score, precision_score, recall_score, accuracy_score
 
 
 class NERTrainer(ITrainer):
@@ -129,9 +130,6 @@ class NERTrainer(ITrainer):
         train_step = resume_step if resume_step != False else 0
         for epoch in range(self.num_epochs):
             train_count = 0
-            train_pred_num = 0
-            train_gold_num = 0
-            train_correct_num = 0
             train_loss = 0
             train_iter = tqdm(self.train_iter)
             self.model.train()
@@ -140,6 +138,13 @@ class NERTrainer(ITrainer):
                 train_step += 1
 
                 for key in it.keys():
+                    # temp_list = it[key].tolist()
+                    # temp = []
+                    # for item in temp_list:
+                    #     temp.append(item[:])
+                    #     temp.append(item[:])
+                    # it[key] = temp
+                    # it[key] = self.cuda(torch.tensor(it[key]))
                     it[key] = self.cuda(it[key])
 
                 outputs = self.model(**it)
@@ -159,21 +164,49 @@ class NERTrainer(ITrainer):
 
                 pred = self.birnncrf(hidden_states, it['input_ids'].gt(0))[1]
 
-                t1, t2 = self.analysis.getPrecision(it['labels'], pred)
-                train_pred_num += t1
-                train_correct_num += t2
-                train_gold_num += self.analysis.getRecall(it['labels'])
+                pred_labels_list = []
+                true_labels_list = []
+                for item_index in range(it["input_ids"].shape[0]):
+                    # remove [PAD] length
+                    real_length = 0
+                    for idx in range(it['input_ids'][item_index].shape[0]-1, -1, -1):
+                        if it["input_ids"][item_index][idx] > 0:
+                            real_length = idx+1
+                            break
+                    # remove [SEP] and [CLS]
+                    pred_labels = pred[item_index][
+                        :real_length]
+                    true_labels = it['labels'][item_index].tolist()[
+                        :real_length]
+                    pred_labels = [label.replace(
+                        "M-", "I-") for label in self.analysis.idx2tag(pred_labels)]
+                    true_labels = [label.replace(
+                        "M-", "I-") for label in self.analysis.idx2tag(true_labels)]
 
-                train_acc = train_correct_num / train_pred_num if train_pred_num != 0 else 0
-                train_recall = train_correct_num / train_gold_num if train_gold_num != 0 else 0
+                    pred_labels_list.append(pred_labels)
+                    true_labels_list.append(true_labels)
+
+                train_acc = accuracy_score(true_labels_list, pred_labels_list)
+                train_recall = recall_score(true_labels_list, pred_labels_list)
+                F1 = f1_score(true_labels_list, pred_labels_list)
+
+                # t1, t2 = self.analysis.getPrecision(it['labels'], pred)
+                # train_pred_num += t1
+                # train_correct_num += t2
+                # train_gold_num += self.analysis.getRecall(it['labels'])
+
+                # train_acc = train_correct_num / train_pred_num if train_pred_num != 0 else 0
+                # train_recall = train_correct_num / train_gold_num if train_gold_num != 0 else 0
 
                 train_iter.set_description(
                     'Epoch: {}/{} Train'.format(epoch + 1, self.num_epochs))
                 train_iter.set_postfix(train_loss=train_loss / train_count, train_acc=train_acc,
-                                       train_recall=train_recall, F1=(2 * train_acc * train_recall) / (train_acc + train_recall + alpha))
+                                       train_recall=train_recall, F1=F1)
+                #    =(2 * train_acc * train_recall) / (train_acc + train_recall + alpha))
                 self.analysis.append_train_record({
                     'loss': loss.data.item(),
-                    'f1': (2 * train_acc * train_recall) / (train_acc + train_recall + alpha),
+                    # 'f1': (2 * train_acc * train_recall) / (train_acc + train_recall + alpha),
+                    'f1': F1,
                     'acc': train_acc,
                     'recall': train_recall
                 })
@@ -190,9 +223,6 @@ class NERTrainer(ITrainer):
         alpha = 1e-10
 
         test_count = 0
-        test_pred_num = 0
-        test_gold_num = 0
-        test_correct_num = 0
         eval_loss = 0
         test_iter = tqdm(self.eval_iter)
         self.model.eval()
@@ -213,20 +243,48 @@ class NERTrainer(ITrainer):
 
                 pred = self.birnncrf(hidden_states, it['input_ids'].gt(0))[1]
 
-                t1, t2 = self.analysis.getPrecision(it['labels'], pred)
-                test_pred_num += t1
-                test_correct_num += t2
-                test_gold_num += self.analysis.getRecall(it['labels'])
+                pred_labels_list = []
+                true_labels_list = []
+                for item_index in range(it["input_ids"].shape[0]):
+                    # remove [PAD] length
+                    real_length = 0
+                    for idx in range(it['input_ids'][item_index].shape[0]-1, -1, -1):
+                        if it["input_ids"][item_index][idx] > 0:
+                            real_length = idx+1
+                            break
+                    # remove [SEP] and [CLS]
+                    pred_labels = pred[item_index][
+                        :real_length]
+                    true_labels = it['labels'][item_index].tolist()[
+                        :real_length]
+                    pred_labels = [label.replace(
+                        "M-", "I-") for label in self.analysis.idx2tag(pred_labels)]
+                    true_labels = [label.replace(
+                        "M-", "I-") for label in self.analysis.idx2tag(true_labels)]
 
-                test_acc = test_correct_num / test_pred_num if test_pred_num != 0 else 0
-                test_recall = test_correct_num / test_gold_num if test_gold_num != 0 else 0
+                    pred_labels_list.append(pred_labels)
+                    true_labels_list.append(true_labels)
+
+                test_acc = accuracy_score(true_labels_list, pred_labels_list)
+                test_recall = recall_score(true_labels_list, pred_labels_list)
+                F1 = f1_score(true_labels_list, pred_labels_list)
+
+                # t1, t2 = self.analysis.getPrecision(it['labels'], pred)
+                # test_pred_num += t1
+                # test_correct_num += t2
+                # test_gold_num += self.analysis.getRecall(it['labels'])
+
+                # test_acc = test_correct_num / test_pred_num if test_pred_num != 0 else 0
+                # test_recall = test_correct_num / test_gold_num if test_gold_num != 0 else 0
 
                 test_iter.set_description('Eval Result')
-                test_iter.set_postfix(eval_loss=eval_loss / test_count, eval_acc=test_acc, eval_recall=test_recall,
-                                      F1=(2 * test_acc * test_recall) / (test_acc + test_recall + alpha))
+                test_iter.set_postfix(
+                    eval_loss=eval_loss / test_count, eval_acc=test_acc, eval_recall=test_recall, F1=F1)
+                #   F1=(2 * test_acc * test_recall) / (test_acc + test_recall + alpha))
             self.analysis.append_eval_record({
                 'loss': loss.data.item(),
-                'f1': (2 * test_acc * test_recall) / (test_acc + test_recall + alpha),
+                # 'f1': (2 * test_acc * test_recall) / (test_acc + test_recall + alpha),
+                'f1': F1,
                 'acc': test_acc,
                 'recall': test_recall
             })

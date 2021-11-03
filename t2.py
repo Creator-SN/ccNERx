@@ -101,85 +101,6 @@ with open(savefile, "w", encoding="utf-8") as f:
 
 
 # %%
-
-lexicon_tree: Trie = TrieFactory.get_trie_from_vocabs(
-    ["data/tencent/tencent_vocab.txt"])
-# %%
-
-
-def x(): return TrieFactory.get_trie_from_vocabs(
-    ["data/tencent/tencent_vocab.txt"])
-
-
-x()
-# %%
-with open("./temp/lexicon_tree_cache.pkl", "wb") as f:
-    pickle.dump(lexicon_tree, f)
-# %%
-with open("./temp/lexicon_tree_cache.pkl", "rb") as f:
-    lexicon_tree = pickle.load(f)
-
-lexicon_tree.search("我们")
-# %%
-
-
-class A():
-    def __init__(self):
-        self.a = []
-
-    def __add__(self, a):
-        if isinstance(a, tuple):
-            for i in a:
-                self.a += [i]
-        else:
-            self.a += [a]
-        return self
-
-
-class B(A):
-    def __init__(self):
-        super().__init__()
-
-
-a = B()
-a += 1
-a += 2
-a += (1, 2)
-print(a.__dict__)
-# %%
-
-
-def add(a):
-    print(type(a))
-    return a
-
-
-a = {
-    "a": 2
-}
-
-print(add(**a))
-
-# %%
-
-a = [1, 2, 3]
-b = [2, 3, 4]
-
-for a, b in zip(a, b):
-    print(a, b)
-# %%
-bt = BertTokenizer.from_pretrained("./data/bert/chinese_wwm_ext/")
-# %%
-bt("a sentences. Hello world!")
-# %%
-
-s = set([1, 2, 3, 4, 5, 6, 7, 1233])
-random.sample(s, 5)
-# %%
-s = [1, 2, 3, 4, 5]
-s[1:3] = [1]
-s
-# %%
 loader = LabelLoader(**{
     "auto_loader": False,
     "debug": True,
@@ -189,9 +110,43 @@ loader = LabelLoader(**{
 }).read_data_set("data/weibonew/train_origin.json", 1.0) \
     .process_data(20) \
     .to_file("./data/weibonew/train_20_2.json")
-    
-    # .to_file("./data/weibonew/train_origin.json") \ 
+
+# .to_file("./data/weibonew/train_origin.json") \
 
 # %%
 print(FileUtil.count_lines("./data/weibonew/train.json"))
+# %%
+args = {
+    'num_epochs': 30,
+    'num_gpus': [0, 1, 2, 3],
+    'bert_config_file_name': 'model/chinese_wwm_ext/bert_config.json',
+    'hidden_dim': 300,
+    'max_seq_length': 150,
+    'max_scan_num': 1000000,
+    'train_file': './data/weibo/train.json',
+    'eval_file': './data/weibo/dev.json',
+    'test_file': './data/weibo/test.json',
+    'bert_vocab_file': 'model/chinese_wwm_ext/vocab.txt',
+    'tag_file': './data/weibo/labels.txt',
+    'output_eval': True,
+    'loader_name': 'le_loader',
+    "word_embedding_file": "./data/tencent/word_embedding.txt",
+    "word_vocab_file": "./data/tencent/tencent_vocab.txt",
+    "default_tag": "O",
+    'batch_size': 16,
+    'eval_batch_size': 64,
+    'do_shuffle': True,
+    'model_name': 'LEBert',
+    'task_name': 'weibo_task_1',
+    'pretrained_file_name':'model/chinese_wwm_ext/pytorch_model.bin'
+}
+
+from CC.trainer import NERTrainer
+trainer = NERTrainer(**args)
+
+for i in trainer():
+    a = i
+
+exit()
+
 # %%
