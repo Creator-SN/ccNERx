@@ -137,7 +137,7 @@ args = {
     'eval_batch_size': 64,
     'do_shuffle': True,
     'model_name': 'LEBert',
-    'task_name': 'weibo_task_1',
+    'task_name': 'weibo_task_1_f1_score_verify',
     'pretrained_file_name':'model/chinese_wwm_ext/pytorch_model.bin'
 }
 

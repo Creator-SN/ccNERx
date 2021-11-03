@@ -174,19 +174,20 @@ class NERTrainer(ITrainer):
                             real_length = idx+1
                             break
                     # remove [SEP] and [CLS]
-                    pred_labels = pred[item_index][
-                        :real_length]
+                    pred_labels = pred[item_index][1:real_length-1]
                     true_labels = it['labels'][item_index].tolist()[
-                        :real_length]
+                        1:real_length-1]
+
                     pred_labels = [label.replace(
                         "M-", "I-") for label in self.analysis.idx2tag(pred_labels)]
                     true_labels = [label.replace(
                         "M-", "I-") for label in self.analysis.idx2tag(true_labels)]
-
                     pred_labels_list.append(pred_labels)
                     true_labels_list.append(true_labels)
 
                 train_acc = accuracy_score(true_labels_list, pred_labels_list)
+                train_precision = precision_score(
+                    true_labels_list, pred_labels_list)
                 train_recall = recall_score(true_labels_list, pred_labels_list)
                 F1 = f1_score(true_labels_list, pred_labels_list)
 
@@ -200,14 +201,14 @@ class NERTrainer(ITrainer):
 
                 train_iter.set_description(
                     'Epoch: {}/{} Train'.format(epoch + 1, self.num_epochs))
-                train_iter.set_postfix(train_loss=train_loss / train_count, train_acc=train_acc,
+                train_iter.set_postfix(train_loss=train_loss / train_count, train_acc=train_acc, train_precision=train_precision,
                                        train_recall=train_recall, F1=F1)
                 #    =(2 * train_acc * train_recall) / (train_acc + train_recall + alpha))
                 self.analysis.append_train_record({
                     'loss': loss.data.item(),
                     # 'f1': (2 * train_acc * train_recall) / (train_acc + train_recall + alpha),
                     'f1': F1,
-                    'acc': train_acc,
+                    'acc': train_precision,
                     'recall': train_recall
                 })
 
@@ -253,10 +254,9 @@ class NERTrainer(ITrainer):
                             real_length = idx+1
                             break
                     # remove [SEP] and [CLS]
-                    pred_labels = pred[item_index][
-                        :real_length]
+                    pred_labels = pred[item_index][1:real_length-1]
                     true_labels = it['labels'][item_index].tolist()[
-                        :real_length]
+                        1:real_length-1]
                     pred_labels = [label.replace(
                         "M-", "I-") for label in self.analysis.idx2tag(pred_labels)]
                     true_labels = [label.replace(
@@ -266,6 +266,8 @@ class NERTrainer(ITrainer):
                     true_labels_list.append(true_labels)
 
                 test_acc = accuracy_score(true_labels_list, pred_labels_list)
+                test_precision = precision_score(
+                    true_labels_list, pred_labels_list)
                 test_recall = recall_score(true_labels_list, pred_labels_list)
                 F1 = f1_score(true_labels_list, pred_labels_list)
 
@@ -279,13 +281,13 @@ class NERTrainer(ITrainer):
 
                 test_iter.set_description('Eval Result')
                 test_iter.set_postfix(
-                    eval_loss=eval_loss / test_count, eval_acc=test_acc, eval_recall=test_recall, F1=F1)
+                    eval_loss=eval_loss / test_count, eval_acc=test_acc, eval_precision=test_precision, eval_recall=test_recall, F1=F1)
                 #   F1=(2 * test_acc * test_recall) / (test_acc + test_recall + alpha))
             self.analysis.append_eval_record({
                 'loss': loss.data.item(),
                 # 'f1': (2 * test_acc * test_recall) / (test_acc + test_recall + alpha),
                 'f1': F1,
-                'acc': test_acc,
+                'acc': test_precision,
                 'recall': test_recall
             })
 
