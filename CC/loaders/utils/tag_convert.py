@@ -18,24 +18,27 @@ class TagConvert():
             KeyError: tag not found in rules
 
         Returns:
-            List[str]: prompt. e.g. ['[MASK]','[MASK]','是','一','个','[MASK]','[MASK]',',']
-            List[str]: prompt_mask e.g. ['0','0','1','1','1','0','0','1']
+            List[str]: prompt. e.g. ['教','师','是','一','个','[MASK]','[MASK]',',']
+            List[str]: prompt_mask e.g. ['1','1','1','1','1','0','0','1']
             List[str]: prompt_tags e.g. ['B-position','I-position','O','O','O','O','O','O']
         """
         if len(word) != len(tag):
             raise ValueError(f"the length of word is not equal to the tag")
         # tag[0] for example: B-position, get the tag: position
+        if isinstance(word,str):
+            word = list(word)
         single_tag = tag[0].split('-')[-1]
         if single_tag not in self.rules:
             raise KeyError(f"tag: {single_tag} not found in rules")
-        prompt_origin = list(
-            f"{''.join(word)}是一个{self.rules[single_tag]}")+[',']
-        prompt = ['[MASK]' for _ in word] + list(
-            f"是一个")+['[MASK]' for _ in self.rules[single_tag]]+[',']
-        prompt_mask = [0 for _ in word] + \
+        prompt_origin = word+list(f"是一个{self.rules[single_tag]}")+[',']
+        prompt = word + list(f"是一个") + \
+            ['[MASK]' for _ in self.rules[single_tag]]+[',']
+        # prompt = ['[MASK]' for _ in word] + list(
+        #     f"是一个")+['[MASK]' for _ in self.rules[single_tag]]+[',']
+        prompt_mask = [1 for _ in word] + \
             ([1]*3) + [0 for _ in self.rules[single_tag]] + [1]
         prompt_tags = tag + \
             [self.default_tag for _ in range(len(word), len(prompt))]
         assert len(prompt) == len(prompt_mask) and len(
-            prompt_mask) == len(prompt_tags) and len(prompt)==len(prompt_origin)
+            prompt_mask) == len(prompt_tags) and len(prompt) == len(prompt_origin)
         return prompt, prompt_mask, prompt_tags, prompt_origin
