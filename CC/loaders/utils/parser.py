@@ -1,4 +1,5 @@
-from typing import Dict
+from __future__ import annotations
+from typing import Any, Dict
 from distutils.util import strtobool
 import json
 
@@ -23,7 +24,7 @@ class KwargsParser():
         self.debug = debug
         self.kv = {}
 
-    def add_argument(self, argName: str, argType: type, defaultValue=None, optional: bool = False, description: str = ""):
+    def add_argument(self, argName: str, argType: type, defaultValue=None, optional: bool = False, description: str = "") -> KwargsParser:
         """add argument
 
         Args:
@@ -39,7 +40,7 @@ class KwargsParser():
             argName, argType, optional=optional, defaultValue=defaultValue, description=description)
         return self
 
-    def parse(self, instance, **kwargs):
+    def parse(self, instance, **kwargs) -> KwargsParser:
         self.kv = {}
         for argName in self.args_name_dict:
             arg: KwargItem = self.args_name_dict[argName]
@@ -51,7 +52,7 @@ class KwargsParser():
             else:
                 if argName in kwargs:
                     value = kwargs[argName]
-            if arg.optional and arg.defaultValue == None:
+            if arg.optional and value is None:
                 setattr(instance, argName, None)
             else:
                 setattr(instance, argName, self._convert_to(value, arg.type))
@@ -61,7 +62,7 @@ class KwargsParser():
                 f"kwargs parser: {json.dumps(self.kv,indent=4,ensure_ascii=False)}")
         return self
 
-    def parse_dict(self, **kwargs):
+    def parse_dict(self, **kwargs) -> Dict[str, Any]:
         self.kv = {}
         for argName in self.args_name_dict:
             arg: KwargItem = self.args_name_dict[argName]
@@ -73,7 +74,7 @@ class KwargsParser():
             else:
                 if argName in kwargs:
                     value = kwargs[argName]
-            if arg.optional and arg.defaultValue == None:
+            if arg.optional and value is None:
                 self.kv[argName] = None
             else:
                 self.kv[argName] = self._convert_to(value, arg.type)

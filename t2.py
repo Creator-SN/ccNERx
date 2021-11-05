@@ -1,14 +1,5 @@
 # %%
-import random
-from transformers import BertTokenizer
 from CC.loaders import *
-import pickle
-from tqdm import *
-from CC.loaders.utils import *
-import json
-from CC.predicter import NERPredict
-
-# %%
 args = {
     'num_epochs': 30,
     'num_gpus': [0, 1, 2, 3],
@@ -54,10 +45,7 @@ args = {
         "book": "书名",
     }
 }
-
-# %%
 loader = LXLoader(**args)
-
 
 # %%
 loader.myData[0]["input_ids"]
@@ -137,7 +125,7 @@ args = {
     'eval_batch_size': 64,
     'do_shuffle': True,
     'model_name': 'LEBert',
-    'task_name': 'weibo_task_1_f1_score_verify',
+    'task_name': 'weibo_task_1_f1_score_verify_2',
     'pretrained_file_name':'model/chinese_wwm_ext/pytorch_model.bin'
 }
 
@@ -148,5 +136,6 @@ for i in trainer():
     a = i
 
 exit()
+
 
 # %%
