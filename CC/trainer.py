@@ -134,6 +134,9 @@ class NERTrainer(ITrainer):
             train_iter = tqdm(self.train_iter)
             self.model.train()
             self.birnncrf.train()
+
+            pred_labels_list = []
+            true_labels_list = []
             for it in train_iter:
                 train_step += 1
 
@@ -164,8 +167,6 @@ class NERTrainer(ITrainer):
 
                 pred = self.birnncrf(hidden_states, it['input_ids'].gt(0))[1]
 
-                pred_labels_list = []
-                true_labels_list = []
                 for item_index in range(it["input_ids"].shape[0]):
                     # remove [PAD] length
                     real_length = 0
@@ -229,6 +230,8 @@ class NERTrainer(ITrainer):
         self.model.eval()
         self.birnncrf.eval()
         with torch.no_grad():
+            pred_labels_list = []
+            true_labels_list = []
             for it in test_iter:
                 for key in it.keys():
                     it[key] = self.cuda(it[key])
@@ -244,8 +247,6 @@ class NERTrainer(ITrainer):
 
                 pred = self.birnncrf(hidden_states, it['input_ids'].gt(0))[1]
 
-                pred_labels_list = []
-                true_labels_list = []
                 for item_index in range(it["input_ids"].shape[0]):
                     # remove [PAD] length
                     real_length = 0
