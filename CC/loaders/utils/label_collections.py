@@ -1,5 +1,6 @@
 from CC.loaders.utils import *
 from typing import *
+from collections import defaultdict
 
 
 class LabelSpan():
@@ -13,7 +14,9 @@ class LabelSpan():
 class LabelCollection():
     def __init__(self, default_label: str = 'O') -> None:
         self.labels: Dict[str, List[List[str]]] = {}
-        self.lables_set: Dict[str, Set[str]] = {}
+        self.labels_set: Dict[str, Set[str]] = {}
+        self.labels_length: Dict[str, Dict[int, List[str]]] = defaultdict(
+            lambda: defaultdict(list))
         self.default_label = default_label
 
     def get_label_slice(self, text: List[str], labels: List[str]) -> List[LabelSpan]:
@@ -24,7 +27,7 @@ class LabelCollection():
         start: int = -1
         # set guard
         text.append("[SEP]")
-        labels.append("B-null")
+        labels.append("B-guard")
         for index, (ch, label) in enumerate(zip(text, labels)):
             label = label.split("-")
             real_label = "-".join(label[1:])
@@ -41,12 +44,15 @@ class LabelCollection():
                         items.append(span)
                         start = -1
                     word = []
-                if label[0] == "B":
+                if label[0] == "B" or label[0] == "S":
                     start = index
                     cur_label = real_label
                 else:
                     start = -1
                     cur_label = None
+            if label[0] == "M" and cur_label is None:
+                start = index
+                cur_label = real_label
             if label[0] != self.default_label:
                 word.append(ch)
         # remove guard
@@ -65,17 +71,21 @@ class LabelCollection():
             for ch, label in zip(text, labels):
                 if label != self.default_label:
                     label = label.split('-')
-                    if label[0] == 'B' or label[0] == "S":
+                    if label[0] == 'B' or label[0] == "S" or label[0] == self.default_label:
                         label_str = '-'.join(label[1:])
                         if cur_label is not None:
                             if cur_label not in self.labels:
                                 self.labels[cur_label] = []
-                                self.lables_set[cur_label] = set()
+                                self.labels_set[cur_label] = set()
                             key = "".join(word)
-                            if key not in self.lables_set[cur_label] and len(word) > 0:
-                                self.lables_set[cur_label].add(key)
+                            if key not in self.labels_set[cur_label] and len(word) > 0:
+                                self.labels_set[cur_label].add(key)
                                 self.labels[cur_label].append(word)
+                                self.labels_length[cur_label][len(
+                                    word)].append(word)
                             word = []
+                        cur_label = label_str
+                    if label[0] == "M" and cur_label is None:
                         cur_label = label_str
                     word.append(ch)
             text.pop()

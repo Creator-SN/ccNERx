@@ -8,12 +8,12 @@ args = {
     'hidden_dim': 300,
     'max_seq_length': 150,
     'max_scan_num': 100,
-    'train_file': './data/SuperNER/pre_train.json',
-    'eval_file': './data/SuperNER/pre_dev.json',
-    'test_file': './data/SuperNER/pre_test.json',
+    'train_file': './data/weibonew/train_test.json',
+    'eval_file': './data/weibo/dev.json',
+    'test_file': './data/weibo/test.json',
     'bert_vocab_file': './model/chinese_wwm_ext/vocab.txt',
-    'tag_file': './data/SuperNER/tags_list.txt',
-    'loader_name': 'lex_loader',
+    'tag_file': './data/weibo/pretrained_labels.txt',
+    'loader_name': 'labellex_loader',
     "word_embedding_file": "./data/tencent/word_embedding.txt",
     "word_vocab_file": "./data/tencent/tencent_vocab.txt",
     "word_vocab_file_with_tag": "./data/tencent/tencent_vocab_with_tag.json",
@@ -25,15 +25,23 @@ args = {
     "use_gpu": True,
     "debug": True,
     "tag_rules": {
+        "PER.NOM": "人的象征",
+        "LOC.NAM": "地点",
+        "PER.NAM": "人",
+        "GPE.NAM": "政治实体",
+        "ORG.NAM": "组织",
+        "ORG.NOM": "组织的象征",
+        "LOC.NOM": "地点的象征",
+        "GPE.NOM": "政治实体的象征",
         "ORG": "组织",
         "LOC": "地点",
         "PER": "人",
         "Time": "时间",
         "Thing": "物品",
         "Metric": "测量单位",
-        "Abstract": "抽象",
-        "Physical": "身体部位",
-        "Term": "学期",
+        "Abstract": "作品",
+        "Physical": "实体",
+        "Term": "术语",
         "company": "企业",
         "name": "名字",
         "game": "游戏",
@@ -42,20 +50,21 @@ args = {
         "address": "地址",
         "government": "政府",
         "scene": "景点",
-        "book": "书名",
+        "book": "书名"
     }
 }
-loader = LXLoader(**args)
+loader = LabelLXLoader(**args)
 
 # %%
-loader.myData[0]["input_ids"]
-loader.tokenizer.decode(loader.myData[0]["input_ids"])
+loader.tokenizer.decode(loader.myData[112]["input_ids"])
 
 # %%
 loader.tag_vocab.id2token(loader.myData[0]["labels"].tolist())
 
 # %%
-loader.tokenizer.decode(loader.myData[0]["origin_labels"])
+loader.tokenizer.decode(loader.myData[112]["origin_labels"])
+#%%
+loader.tokenizer.decode(loader.myData[112]["input_labels"])
 
 # %%
 predict = NERPredict(**args)
@@ -89,15 +98,17 @@ with open(savefile, "w", encoding="utf-8") as f:
 
 
 # %%
+from CC.loaders import LabelLoader
 loader = LabelLoader(**{
     "auto_loader": False,
     "debug": True,
     "file_name": "data/weibo/train.json",
     "random_rate": 0.2,
-    "expansion_rate": 50
-}).read_data_set("data/weibonew/train_origin.json", 1.0) \
+    "expansion_rate": 50,
+    "allow_origin": False
+}).read_data_set("data/weibo/train.json", 1.0) \
     .process_data(20) \
-    .to_file("./data/weibonew/train_20_2.json")
+    .to_file("./data/weibonew/train_test.json")
 
 # .to_file("./data/weibonew/train_origin.json") \
 
@@ -204,4 +215,13 @@ for i in pre_trainer():
     a = i
 
 exit()
+# %%
+from CC.loaders.utils import LabelCounter
+counter = LabelCounter()
+example = {"text": ["延", "参", "法", "师", "品", "味", "人", "生", "如", "同", "走", "进", "一", "片", "山", "水", "，", "静", "静", "的", "呼", "吸", "，", "安", "静", "的", "欣", "赏", "，", "这", "就", "是", "生", "活", "。"], "label": ["B-PER.NAM", "E-PER.NAM", "B-PER.NOM", "E-PER.NOM", "O", "O", "O", "O", "O", "O", "O", "O", "O", "O", "O", "O", "O", "O", "O", "O", "O", "O", "O", "O", "O", "O", "O", "O", "O", "O", "O", "O", "O", "O", "O"]}
+counter.add(example["label"],example["text"])
+counter.pick("PER.NOM","人民")
+# %%
+print(counter.label_counter.keys())
+
 # %%
