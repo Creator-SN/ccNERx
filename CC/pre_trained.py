@@ -42,7 +42,7 @@ class NERPreTrainer(ITrainer):
         result = self.dataloader()
         self.train_data = result['train_set']
         self.train_iter = result['train_iter']
-        if self.loader_name == 'lex_loader':
+        if self.loader_name in ['lex_loader', 'labellex_loader']:
             self.vocab_embedding = result['vocab_embedding']
             self.embedding_dim = result['embedding_dim']
             self.tag_vocab = result['tag_vocab']
@@ -79,7 +79,7 @@ class NERPreTrainer(ITrainer):
                     it[key] = self.cuda(it[key])
 
                 outputs = self.model(input_ids=it['input_ids'], attention_mask=it['attention_mask'],
-                                     token_type_ids=it['token_type_ids'], labels=it['input_labels'])
+                                     token_type_ids=it['token_type_ids'], labels=it['origin_labels'])
                 loss = outputs.loss
                 loss = loss.mean()
 
