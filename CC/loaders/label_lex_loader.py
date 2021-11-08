@@ -25,7 +25,7 @@ class LabelLXLoader(IDataLoader):
             .add_argument("test_file", str) \
             .add_argument("tag_file", str) \
             .add_argument("bert_vocab_file", str) \
-            .add_argument("output_eval", bool, defaultValue=True) \
+            .add_argument("output_eval", bool, defaultValue=False) \
             .add_argument("max_scan_num", int, defaultValue=1000000) \
             .add_argument("add_seq_vocab", bool, defaultValue=False) \
             .add_argument("max_seq_length", int, defaultValue=256) \
