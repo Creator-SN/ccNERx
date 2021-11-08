@@ -1,9 +1,4 @@
-from logging import debug
-from pickle import FALSE
-from torch._C import Value
-from transformers.file_utils import filename_to_url
 from CC.loaders.utils.label_collections import LabelCollection
-from ICCSupervised.ICCSupervised import IDataLoader
 import os
 from CC.loaders.utils import *
 from tqdm import *
@@ -12,18 +7,12 @@ import random
 import math
 
 
-class LabelLoader(IDataLoader):
+class DataExpand():
     def __init__(self, **args):
         KwargsParser().add_argument("debug", bool, defaultValue=False) \
             .add_argument("file_name", str) \
-            .add_argument("random_rate", float, defaultValue=1.0) \
-            .add_argument("expansion_rate", int, defaultValue=1) \
-            .add_argument("auto_loader", bool, defaultValue=True) \
             .add_argument("allow_origin", bool, defaultValue=True) \
             .parse(self, **args)
-        if self.auto_loader:
-            self.read_data_set(self.file_name, self.random_rate) \
-                .process_data(self.expansion_rate)
 
     def __call__(self):
         return self.items

@@ -98,13 +98,10 @@ with open(savefile, "w", encoding="utf-8") as f:
 
 
 # %%
-from CC.loaders import LabelLoader
-loader = LabelLoader(**{
-    "auto_loader": False,
+from tools.expand_data import DataExpand
+loader = DataExpand(**{
     "debug": True,
     "file_name": "data/weibo/train.json",
-    "random_rate": 0.2,
-    "expansion_rate": 50,
     "allow_origin": False
 }).read_data_set("data/weibo/train.json", 1.0) \
     .process_data(20) \
