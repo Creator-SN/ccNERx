@@ -55,16 +55,15 @@ args = {
 }
 loader = LabelLXLoader(**args)
 
-# %%
-loader.tokenizer.decode(loader.myData[112]["input_ids"])
-
-# %%
-loader.tag_vocab.id2token(loader.myData[0]["labels"].tolist())
-
-# %%
-loader.tokenizer.decode(loader.myData[112]["origin_labels"])
 #%%
-loader.tokenizer.decode(loader.myData[112]["input_labels"])
+print(len(loader.myData))
+
+# %%
+choices = ("input_ids","origin_labels","input_labels","labels")
+for i in loader.myData[:10][choices[2]].tolist():
+    print(loader.tokenizer.decode(i))
+    # print(loader.tag_vocab.id2token(i))
+
 
 # %%
 predict = NERPredict(**args)
