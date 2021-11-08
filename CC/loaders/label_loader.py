@@ -18,7 +18,8 @@ class LabelLoader(IDataLoader):
             .add_argument("file_name", str) \
             .add_argument("random_rate", float, defaultValue=1.0) \
             .add_argument("expansion_rate", int, defaultValue=1) \
-            .add_argument("auto_loader",bool,defaultValue=True) \
+            .add_argument("auto_loader", bool, defaultValue=True) \
+            .add_argument("allow_origin", bool, defaultValue=True) \
             .parse(self, **args)
         if self.auto_loader:
             self.read_data_set(self.file_name, self.random_rate) \
@@ -32,10 +33,11 @@ class LabelLoader(IDataLoader):
         if not os.path.exists(d):
             os.mkdir(d)
         with open(file_name, "w", encoding="utf-8") as f:
-            for text, label in self.items:
+            for text, label, replace in self.items:
                 line = json.dumps({
                     "text": text,
-                    "label": label
+                    "label": label,
+                    "replace": replace
                 }, ensure_ascii=False)
                 f.write(f"{line}\n")
         return self
@@ -62,7 +64,7 @@ class LabelLoader(IDataLoader):
     def verify_data(self):
         return self
 
-    def process_data(self, expansion_rate: int = 1) :
+    def process_data(self, expansion_rate: int = 1):
         if getattr(self, "items", None) is None:
             raise ValueError("run read_data_set firstly!")
         new_items = []
@@ -76,20 +78,23 @@ class LabelLoader(IDataLoader):
             count = 0
             k = key((text, label))
             if k not in sample_set:
-                count += 1
                 sample_set.add(k)
-                new_items.append((text, label))
+                if self.allow_origin:
+                    count += 1
+                    new_items.append((text, label, []))
             # important: reverse
             spans = self.labels_collections.get_label_slice(
                 text, label)
             spans.reverse()
             repeat_count = expansion_rate*10
+            replace_span = []
             while count < expansion_rate and repeat_count > 0:
                 repeat_count -= 1
                 new_text = text[:]
                 new_label = label[:]
                 for span in spans:
-                    same_label_texts = self.labels_collections[span.label]
+                    same_label_texts = self.labels_collections.labels_length[span.label][len(
+                        span.text)]
                     sample_text = random.choice(same_label_texts)
                     # replace
                     new_text[span.start:span.end] = sample_text
@@ -98,6 +103,11 @@ class LabelLoader(IDataLoader):
                     temp_label[0] = f"B-{span.label}"
                     temp_label[-1] = new_label[span.end-1]
                     new_label[span.start:span.end] = temp_label
+                    replace_span.append({
+                        "start": span.start,
+                        "end": span.end,
+                        "origin": text[span.start:span.end]
+                    })
                     assert len(new_text) == len(
                         new_label), f"text:{new_text}\nlabel:{new_label}"
                 k = key((new_text, new_label))
@@ -107,6 +117,6 @@ class LabelLoader(IDataLoader):
                         debug_sample -= 1
                     count += 1
                     sample_set.add(k)
-                    new_items.append((new_text, new_label))
+                    new_items.append((new_text, new_label, replace_span))
         self.items = new_items
         return self
