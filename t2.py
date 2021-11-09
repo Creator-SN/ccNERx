@@ -55,16 +55,15 @@ args = {
 }
 loader = LabelLXLoader(**args)
 
-# %%
-loader.tokenizer.decode(loader.myData[112]["input_ids"])
-
-# %%
-loader.tag_vocab.id2token(loader.myData[0]["labels"].tolist())
-
-# %%
-loader.tokenizer.decode(loader.myData[112]["origin_labels"])
 #%%
-loader.tokenizer.decode(loader.myData[112]["input_labels"])
+print(len(loader.myData))
+
+# %%
+choices = ("input_ids","origin_labels","input_labels","labels")
+for i in loader.myData[:10][choices[2]].tolist():
+    print(loader.tokenizer.decode(i))
+    # print(loader.tag_vocab.id2token(i))
+
 
 # %%
 predict = NERPredict(**args)
@@ -98,13 +97,10 @@ with open(savefile, "w", encoding="utf-8") as f:
 
 
 # %%
-from CC.loaders import LabelLoader
-loader = LabelLoader(**{
-    "auto_loader": False,
+from tools.expand_data import DataExpand
+loader = DataExpand(**{
     "debug": True,
     "file_name": "data/weibo/train.json",
-    "random_rate": 0.2,
-    "expansion_rate": 50,
     "allow_origin": False
 }).read_data_set("data/weibo/train.json", 1.0) \
     .process_data(20) \
