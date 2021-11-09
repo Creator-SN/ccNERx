@@ -1,11 +1,10 @@
-
+from os import replace
 from CC.loaders.utils import *
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import TensorDataset, DataLoader, Dataset
 from torch import tensor
 from transformers import BertTokenizer
 from tqdm import *
 from typing import *
-from CC.loaders.utils.label import get_labels
 from ICCSupervised.ICCSupervised import IDataLoader
 import json
 import numpy as np
@@ -141,108 +140,136 @@ class LEXBertDataSet(Dataset):
             setattr(self, name, args[name])
         self.__init_dataset()
 
-    def to_numpy(self, input_ids, token_type_ids, attention_mask, label_ids, input_labels, input_origin_labels):
-        np_input_ids = np.zeros(self.max_seq_length, dtype=np.int)
-        np_input_ids[:len(input_ids)] = input_ids
-
-        np_token_type_ids = np.ones(self.max_seq_length, dtype=np.int)
-        np_token_type_ids[:len(token_type_ids)] = token_type_ids
-
-        np_attention_mask = np.ones(self.max_seq_length, dtype=np.int)
-        np_attention_mask[:len(attention_mask)] = attention_mask
-
-        np_labels_ids = np.zeros(self.max_seq_length, dtype=np.int)
-        np_labels_ids[:len(label_ids)] = label_ids
-
-        np_input_labels = np.zeros(self.max_seq_length, dtype=np.int)
-        np_input_labels[:len(input_labels)] = input_labels
-        np_input_labels[len(input_labels):] = -100
-
-        np_input_origin_labels = np.zeros(self.max_seq_length, dtype=np.int)
-        np_input_origin_labels[:len(input_origin_labels)] = input_origin_labels
-        np_input_origin_labels[len(input_origin_labels):] = -100
-
-        return np_input_ids, np_token_type_ids, np_attention_mask,  np_input_labels, np_input_origin_labels, np_labels_ids
-
-    def combine_prompt(self, data_text, data_labels, prompts):
-        # clone origin data
-        data_text = ["[CLS]"] + data_text[:self.max_seq_length-2] + ["[SEP]"]
-        data_labels = [self.default_tag] + \
-            data_labels[:self.max_seq_length-2] + [self.default_tag]
-        origin_text = data_text[:]
-
-        labels = [-100] * len(data_text)
-        attention_mask = [1] * len(data_text)
-        token_type_ids = [0] * len(data_text)
-        for prompt, mask, label, origin in prompts:
-            if len(prompt)+len(data_text) <= self.max_seq_length:
-                data_text += prompt
-                attention_mask += mask
-                data_labels += label
-                origin_text += origin
-                labels += [self.tokenizer.convert_tokens_to_ids(
-                    [ch])[0] if mask_bit == 0 else -100 for ch, mask_bit in zip(origin, mask)]
-        data_text[-1] = "[SEP]"
-        origin_text[-1] = "[SEP]"
-        input_ids = self.tokenizer.convert_tokens_to_ids(data_text)
-        labels_ids = self.tag_vocab.token2id(data_labels)
-        origin_labels = self.tokenizer.convert_tokens_to_ids(origin_text)
-        return self.to_numpy(input_ids, token_type_ids, attention_mask, labels_ids, labels, origin_labels)
-
     def convert_embedding(self, item):
         if "text" not in item:
             raise KeyError(f"key text not exists in item: {item}")
-        if "label" not in item:
-            raise KeyError(f"key label not exists in item: {item}")
-        if "replace" not in item:
-            raise KeyError(f"key replace not exists in item: {item}")
+        if not self.do_predict:
+            if "label" not in item:
+                raise KeyError(f"key label not exists in item: {item}")
+            if "replace" not in item:
+                raise KeyError(f"key replace not exists in item: {item}")
+            # add guard
+            item["text"].append("[SEP]")
+            item["label"].append("B-Guard")
 
-        replace_set = {}
-        for span in item["replace"]:
-            replace_set[f"{span['start']},{span['end']}"] = span["origin"]
+            origin_replace_entity = []
+            for span in item["replace"]:
+                origin_replace_entity.append((
+                    span["start"], span["end"], span["origin"]))
+            # resolve prompt
+            prompts = []
+            prompt_masks = []
+            prompt_tags = []
+            prompt_origins = []
+            word = []
+            labels = []
+            exist_prompt = set()
+            for ch, label in zip(item["text"], item["label"]):
+                if label != self.default_tag:
+                    if label.startswith('B-') or label.startswith("S-"):
+                        if len(word) != 0:
+                            prompt, prompt_mask, prompt_tag, prompt_origin = self.tag_convert.tag2prompt(
+                                labels, word)
+                            key = hash(str(prompt_origin))
+                            if key not in exist_prompt:
+                                exist_prompt.add(key)
+                                prompts.append(prompt)
+                                prompt_masks.append(prompt_mask)
+                                prompt_tags.append(prompt_tag)
+                                prompt_origins.append(prompt_origin)
+                            word = []
+                            labels = []
+                    word.append(ch)
+                    labels.append(label)
+            # remove guard
+            item["text"].pop()
+            item["label"].pop()
 
-        entity_collections = get_entities(item["label"], item["text"])
+            # resolve input
+            text = ["[CLS]"] + item["text"][:self.max_seq_length-2]+["[SEP]"]
+            origin_text = text[:]
+            text_origin_length = len(text)
 
-        # resolve prompt
-        exist_prompt = set()
-        for start, end, label, word in entity_collections:
-            # prompt,mask,labels,origin_prompt
-            prompt = self.tag_convert.tag2prompt(
-                get_labels(label, len(word)), word)
-            key = hash(str(prompt[3]))
-            prompts = [prompt]
-            if key not in exist_prompt:
-                exist_prompt.add(key)
-                # check the origin word
-                if f"{start},{end}" in replace_set:
-                    origin = replace_set[f"{start},{end}"]
-                    temp_prompt = word + list("应该是") + ['[MASK]'] * \
-                        len(origin) + [","]
-                    temp_mask = [1] * (3+len(word)) + [0] * len(origin) + [1]
-                    temp_labels = get_labels(label, len(
-                        word)) + [self.default_tag] * 3 + get_labels(label, len(origin)) + [self.default_tag]
-                    temp_origin = word + list("应该是") + origin + [","]
-                    prompts.append((temp_prompt, temp_mask,
-                                   temp_labels, temp_origin))
+            matched_words = self.lexicon_tree.getAllMatchedWordList(
+                text, self.max_word_num)
+            # for matched_word add prompt
+            for words in matched_words:
+                for word in words:
+                    tag = self.word_vocab.tag(word)
+                    # if the word tag is "O", skip...
+                    if tag[0] == self.default_tag:
+                        continue
+                    prompt, prompt_mask, prompt_tag, prompt_origin = self.tag_convert.tag2prompt(
+                        tag, word)
+                    key = hash(str(prompt_origin))
+                    if key not in exist_prompt:
+                        exist_prompt.add(key)
+                        prompts.append(prompt)
+                        prompt_masks.append(prompt_mask)
+                        prompt_tags.append(prompt_tag)
+                        prompt_origins.append(prompt_origin)
 
-                yield self.combine_prompt(item["text"], item["label"], prompts)
-        matched_words = self.lexicon_tree.getAllMatchedWordList(
-            item["text"], self.max_word_num)
+            label = [self.default_tag] + \
+                item["label"][:self.max_seq_length-2]+[self.default_tag]
+            mask = [1 for _ in text]
+            for prompt, prompt_mask, prompt_tag, prompt_origin in zip(prompts, prompt_masks, prompt_tags, prompt_origins):
+                if len(text)+len(prompt) <= self.max_seq_length:
+                    text += prompt
+                    label += prompt_tag
+                    mask += prompt_mask
+                    origin_text += prompt_origin
 
-        # for matched_word add prompt
-        for words in matched_words:
-            for word in words:
-                tag = self.word_vocab.tag(word)
-                # if the word tag is "O", skip...
-                if tag[0] == self.default_tag:
-                    continue
-                prompt = self.tag_convert.tag2prompt(
-                    tag, word)
-                key = hash(str(prompt[3]))
-                if key not in exist_prompt:
-                    exist_prompt.add(key)
-                    prompts = [prompt]
-                    yield self.combine_prompt(item["text"], item["label"], prompts)
+            # convert to ids
+            token_ids = self.tokenizer.convert_tokens_to_ids(text)
+            label_ids = self.tag_vocab.token2id(label)
+
+            # replace origin labels
+            for start, end, entity in origin_replace_entity:
+                if end < self.max_seq_length:
+                    origin_text[start+1:end+1] = entity
+
+            origin_text = self.tokenizer.convert_tokens_to_ids(origin_text)
+
+            labels = []
+            for m, token_id in zip(mask, origin_text):
+                if m == 0:
+                    labels.append(token_id)
+                else:
+                    labels.append(-100)
+            for start, end, _ in origin_replace_entity:
+                if end < self.max_seq_length:
+                    labels[start+1:end+1] = origin_text[start+1:end+1]
+
+            np_input_ids = np.zeros(self.max_seq_length, dtype=np.int)
+            np_input_ids[:len(token_ids)] = token_ids
+
+            np_token_type_ids = np.ones(self.max_seq_length, dtype=np.int)
+            np_token_type_ids[:text_origin_length] = 0
+
+            np_attention_mask = np.ones(self.max_seq_length, dtype=np.int)
+            np_attention_mask[:len(mask)] = mask
+
+            np_label_ids = np.zeros(self.max_seq_length, dtype=np.int)
+            np_label_ids[:len(label_ids)] = label_ids
+
+            np_labels = np.zeros(self.max_seq_length, dtype=np.int)
+            np_labels[:len(labels)] = labels
+            np_labels[len(labels):] = -100
+
+            np_origin_labels = np.zeros(self.max_seq_length, dtype=np.int)
+            np_origin_labels[:len(origin_text)] = origin_text
+            np_origin_labels[len(labels):] = -100
+
+            assert np_input_ids.shape[0] == np_token_type_ids.shape[0]
+            assert np_input_ids.shape[0] == np_attention_mask.shape[0]
+            assert np_input_ids.shape[0] == np_label_ids.shape[0]
+            assert np_input_ids.shape[0] == np_labels.shape[0]
+            assert np_input_ids.shape[0] == np_origin_labels.shape[0]
+
+            return np_input_ids, np_token_type_ids, np_attention_mask, np_labels, np_origin_labels, np_label_ids
+        # TODO: predict
+
+        raise NotImplemented("do_predict not implement")
 
     def __init_dataset(self):
         line_total = FileUtil.count_lines(self.file)
@@ -255,14 +282,14 @@ class LEXBertDataSet(Dataset):
         for line in tqdm(FileUtil.line_iter(self.file), desc=f"load dataset from {self.file}", total=line_total):
             line = line.strip()
             data: Dict[str, List[Any]] = json.loads(line)
-            for input_token_ids, token_type_ids, attention_mask, input_labels, origin_label, labels in self.convert_embedding(
-                    data):
-                self.input_token_ids.append(input_token_ids)
-                self.token_type_ids.append(token_type_ids)
-                self.attention_mask.append(attention_mask)
-                self.origin_labels.append(origin_label)
-                self.input_labels.append(input_labels)
-                self.labels.append(labels)
+            input_token_ids, token_type_ids, attention_mask, input_labels, origin_label, labels = self.convert_embedding(
+                data)
+            self.input_token_ids.append(input_token_ids)
+            self.token_type_ids.append(token_type_ids)
+            self.attention_mask.append(attention_mask)
+            self.origin_labels.append(origin_label)
+            self.input_labels.append(input_labels)
+            self.labels.append(labels)
         self.size = len(self.input_token_ids)
         self.input_token_ids = np.array(self.input_token_ids)
         self.token_type_ids = np.array(self.token_type_ids)
