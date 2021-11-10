@@ -1,5 +1,6 @@
 import re
 import torch
+import random
 from CC.loaders.utils import DataManager
 from ICCSupervised.ICCSupervised import IDataLoader
 from torch.utils.data import DataLoader, Dataset
@@ -42,6 +43,10 @@ class CNDataLoader(IDataLoader):
         self.eval_batch_size = None
         if "eval_batch_size" in args:
             self.eval_batch_size = args['eval_batch_size']
+        
+        self.do_shuffle = False
+        if "do_shuffle" in args:
+            self.do_shuffle = args['do_shuffle']
             
         self.read_data_set(args['train_file'], self.eval_file,
                            self.word_tag_split, self.pattern)
@@ -103,7 +108,7 @@ class CNDataLoader(IDataLoader):
     def process_data(self, padding_length, batch_size, eval_batch_size):
         eval_batch_size = batch_size if eval_batch_size is None else eval_batch_size
         self.myData = CNDataset(
-            self.train_set, self.train_tags, self.dm, padding_length)
+            self.train_set, self.train_tags, self.dm, padding_length, self.do_shuffle)
         self.dataiter = DataLoader(self.myData, batch_size=batch_size)
         if self.output_eval:
             self.myData_eval = CNDataset(
@@ -129,12 +134,19 @@ class CNDataLoader(IDataLoader):
 
 
 class CNDataset(Dataset):
-    def __init__(self, sentences_list, tags_list, data_manager, padding_length=100):
+    def __init__(self, sentences_list, tags_list, data_manager, padding_length=100, do_shuffle=False):
         self.sentences, self.tags_list = sentences_list, tags_list
         self.data_manager = data_manager
         self.padding_length = padding_length
+        self.do_shuffle = do_shuffle
+
+        self.shuffle_idx_list = [idx for idx in range(len(self.sentences))]
+        if self.do_shuffle:
+            random.shuffle(self.shuffle_idx_list)
+            
 
     def __getitem__(self, idx):
+        idx = self.shuffle_idx_list[idx]
         sentence, tags = self.data_manager.encode(
             self.sentences[idx], self.tags_list[idx], padding_length=self.padding_length - 1)
         sentence = [101] + sentence

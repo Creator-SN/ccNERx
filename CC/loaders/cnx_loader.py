@@ -1,5 +1,6 @@
 import re
 import torch
+import random
 from CC.loaders.utils import DataManager
 from ICCSupervised.ICCSupervised import IDataLoader
 from torch.utils.data import DataLoader, Dataset
@@ -43,6 +44,10 @@ class CNXDataLoader(IDataLoader):
         self.eval_batch_size = None
         if "eval_batch_size" in args:
             self.eval_batch_size = args['eval_batch_size']
+        
+        self.do_shuffle = False
+        if "do_shuffle" in args:
+            self.do_shuffle = args['do_shuffle']
 
         self.tag_rules = args['tag_rules']
         self.read_data_set(args['train_file'], self.eval_file,
@@ -105,7 +110,7 @@ class CNXDataLoader(IDataLoader):
     def process_data(self, padding_length, batch_size, eval_batch_size):
         eval_batch_size = batch_size if eval_batch_size is None else eval_batch_size
         self.myData = CNXDataset(
-            self.train_set, self.train_tags, self.dm, self.tag_rules, padding_length)
+            self.train_set, self.train_tags, self.dm, self.tag_rules, padding_length, self.do_shuffle)
         self.dataiter = DataLoader(self.myData, batch_size=batch_size)
         if self.output_eval:
             self.myData_eval = CNXDataset(
@@ -131,20 +136,28 @@ class CNXDataLoader(IDataLoader):
 
 
 class CNXDataset(Dataset):
-    def __init__(self, sentences_list, tags_list, data_manager, tag_rules, padding_length=100):
+    def __init__(self, sentences_list, tags_list, data_manager, tag_rules, padding_length=100, do_shuffle=False):
         self.sentences, self.tags_list = sentences_list, tags_list
         self.tag_rules = tag_rules
         self.data_manager = data_manager
         self.padding_length = padding_length
         self.generate_prompt()
 
+        self.do_shuffle = do_shuffle
+
+        self.shuffle_idx_list = [idx for idx in range(len(self.sentences))]
+        if self.do_shuffle:
+            random.shuffle(self.shuffle_idx_list)
+
     def generate_prompt(self):
         prompt_inputs = []
         prompt_labels = []
+        prompt_origin_labels = []
         for idx, tags in enumerate(self.tags_list):
             sentence = self.sentences[idx]
             prompt_input = []
             prompt_label = []
+            prompt_origin_label = []
             range_text = ''
             range_tag = ''
             for i, tag in enumerate(tags):
@@ -160,18 +173,23 @@ class CNXDataset(Dataset):
                 elif s == 'O':
                     if range_text == '':
                         continue
-                    prompt_input += ['[MASK]' for _ in range_text] + \
+                    prompt_input += [_ for _ in range_text] + \
                         ['是', '一', '个'] + ['[MASK]' for _ in range_tag] + [';']
                     prompt_label += [word for word in range_text] + \
                         [-100, -100, -100] + [word for word in range_tag] + [-100]
+                    prompt_origin_label += [word for word in range_text] + \
+                        ['是', '一', '个'] + [word for word in range_tag] + [';']
                     range_text = ''
                     range_tag = ''
             prompt_inputs.append(prompt_input)
             prompt_labels.append(prompt_label)
+            prompt_origin_labels.append(prompt_origin_label)
         self.prompt_inputs = prompt_inputs
         self.prompt_labels = prompt_labels
+        self.prompt_origin_labels = prompt_origin_labels
 
     def __getitem__(self, idx):
+        idx = self.shuffle_idx_list[idx]
         input_ids = self.sentences[idx] + ['[SEP]'] + self.prompt_inputs[idx]
         input_ids = [self.data_manager.wordToIdx(word) for word in input_ids]
         input_ids = [101] + input_ids
@@ -181,28 +199,37 @@ class CNXDataset(Dataset):
             labels[-len(self.prompt_labels[idx]):] = self.prompt_labels[idx]
         labels = [self.data_manager.wordToIdx(word) if word != -100 else -100 for word in labels]
 
+        origin_labels = [_ for _ in input_ids]
+        if len(self.prompt_origin_labels[idx]) > 0:
+            prompt_origin_labels = [self.data_manager.wordToIdx(word) for word in self.prompt_origin_labels[idx]]
+            origin_labels[-len(prompt_origin_labels):] = prompt_origin_labels
+
         token_type_ids = [0 for _ in input_ids]
         for i in range(len(self.sentences[idx]) + 1, len(token_type_ids)):
             token_type_ids[i] = 1
         if len(input_ids) > self.padding_length:
             input_ids = input_ids[:self.padding_length]
             labels = labels[:self.padding_length]
+            origin_labels = origin_labels[:self.padding_length]
             token_type_ids = token_type_ids[:self.padding_length]
         else:
             remain = self.padding_length - len(input_ids)
             for i in range(remain):
                 input_ids.append(self.data_manager.wordToIdx('[PAD]'))
                 labels.append(-100)
+                origin_labels.append(-100)
                 token_type_ids.append(1)
         
         sentence = torch.tensor(input_ids)
         tags = torch.tensor(labels)
+        origin_tags = torch.tensor(origin_labels)
         token_type_ids = torch.tensor(token_type_ids)
         return {
             'input_ids': sentence,
             'attention_mask': sentence.gt(0),
             'token_type_ids': token_type_ids,
             'input_labels': tags,
+            'origin_labels': origin_tags,
             'labels': tags
         }
 
