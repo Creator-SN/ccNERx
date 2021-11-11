@@ -4,6 +4,7 @@ from torch import tensor
 from transformers import BertTokenizer
 from tqdm import *
 from typing import *
+from CC.loaders.utils.label import get_labels
 from ICCSupervised.ICCSupervised import IDataLoader
 import json
 import numpy as np
@@ -152,33 +153,16 @@ class LEXBertDataSet(Dataset):
             if "label" not in item:
                 raise KeyError(f"key label not exists in item: {item}")
             # resolve prompt
+            
             prompts = []
             prompt_masks = []
             prompt_tags = []
             prompt_origins = []
-            word = []
-            labels = []
             exist_prompt = set()
-            for ch, label in zip(item["text"], item["label"]):
-                if label != self.default_tag:
-                    if label.startswith('B-'):
-                        if len(word) != 0:
-                            prompt, prompt_mask, prompt_tag, prompt_origin = self.tag_convert.tag2prompt(
-                                labels, word)
-                            key = hash(str(prompt_origin))
-                            if key not in exist_prompt:
-                                exist_prompt.add(key)
-                                prompts.append(prompt)
-                                prompt_masks.append(prompt_mask)
-                                prompt_tags.append(prompt_tag)
-                                prompt_origins.append(prompt_origin)
-                            word = []
-                            labels = []
-                    word.append(ch)
-                    labels.append(label)
-            if len(word) != 0:
+            entity_collections = get_entities(item["label"], item["text"])
+            for _,_, label, word in entity_collections:
                 prompt, prompt_mask, prompt_tag, prompt_origin = self.tag_convert.tag2prompt(
-                    labels, word)
+                    get_labels(label,len(word)), word)
                 key = hash(str(prompt_origin))
                 if key not in exist_prompt:
                     exist_prompt.add(key)
@@ -210,6 +194,19 @@ class LEXBertDataSet(Dataset):
                         prompt_tags.append(prompt_tag)
                         prompt_origins.append(prompt_origin)
 
+            for words in matched_words:
+                for word in words:
+                    tag = self.word_vocab.tag(word)
+                    if tag[0] == self.default_tag and len(word)>1:
+                        prompt, prompt_mask, prompt_tag, prompt_origin = self.tag_convert.word2prompt(word)
+                        key = hash(str(prompt_origin))
+                        if key not in exist_prompt:
+                            exist_prompt.add(key)
+                            prompts.append(prompt)
+                            prompt_masks.append(prompt_mask)
+                            prompt_tags.append(prompt_tag)
+                            prompt_origins.append(prompt_origin)
+
             label = [self.default_tag] + \
                 item["label"][:self.max_seq_length-2]+[self.default_tag]
             mask = [1 for _ in text]
@@ -219,7 +216,9 @@ class LEXBertDataSet(Dataset):
                     label += prompt_tag
                     mask += prompt_mask
                     origin_text += prompt_origin
-
+            # replace last [SEP]
+            text[-1] = "[SEP]"
+            origin_text[-1] = "[SEP]"
             # convert to ids
             token_ids = self.tokenizer.convert_tokens_to_ids(text)
             label_ids = self.tag_vocab.token2id(label)

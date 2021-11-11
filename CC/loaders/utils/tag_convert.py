@@ -6,7 +6,20 @@ class TagConvert():
         self.rules: Dict[str, str] = rules
         self.default_tag: str = default_tag
 
-    def tag2prompt(self, tag: List[str], word: List[str]) -> Tuple[List[str], List[str], List[str]]:
+    def word2prompt(self, word: List[str]) -> Tuple[List[str], List[str], List[str], List[str]]:
+        if isinstance(word, str):
+            word = list(word)
+        prompt_origin = word+list(f"是一个单词,")
+        prompt = word + list(f"是一个单词,")
+        # prompt = ['[MASK]' for _ in word] + list(
+        #     f"是一个")+['[MASK]' for _ in self.rules[single_tag]]+[',']
+        prompt_mask = [1] * len(prompt)
+        prompt_tags = [self.default_tag] * len(prompt)
+        assert len(prompt) == len(prompt_mask) and len(
+            prompt_mask) == len(prompt_tags) and len(prompt) == len(prompt_origin)
+        return prompt, prompt_mask, prompt_tags, prompt_origin
+
+    def tag2prompt(self, tag: List[str], word: List[str]) -> Tuple[List[str], List[str], List[str], List[str]]:
         """ convert tag to a prompt
 
         Args:
@@ -25,7 +38,7 @@ class TagConvert():
         if len(word) != len(tag):
             raise ValueError(f"the length of word is not equal to the tag")
         # tag[0] for example: B-position, get the tag: position
-        if isinstance(word,str):
+        if isinstance(word, str):
             word = list(word)
         single_tag = tag[0].split('-')[-1]
         if single_tag not in self.rules:
