@@ -194,18 +194,18 @@ class LEXBertDataSet(Dataset):
                         prompt_tags.append(prompt_tag)
                         prompt_origins.append(prompt_origin)
 
-            for words in matched_words:
-                for word in words:
-                    tag = self.word_vocab.tag(word)
-                    if tag[0] == self.default_tag and len(word)>1:
-                        prompt, prompt_mask, prompt_tag, prompt_origin = self.tag_convert.word2prompt(word)
-                        key = hash(str(prompt_origin))
-                        if key not in exist_prompt:
-                            exist_prompt.add(key)
-                            prompts.append(prompt)
-                            prompt_masks.append(prompt_mask)
-                            prompt_tags.append(prompt_tag)
-                            prompt_origins.append(prompt_origin)
+            # for words in matched_words:
+            #     for word in words:
+            #         tag = self.word_vocab.tag(word)
+            #         if tag[0] == self.default_tag and len(word)>1:
+            #             prompt, prompt_mask, prompt_tag, prompt_origin = self.tag_convert.word2prompt(word)
+            #             key = hash(str(prompt_origin))
+            #             if key not in exist_prompt:
+            #                 exist_prompt.add(key)
+            #                 prompts.append(prompt)
+            #                 prompt_masks.append(prompt_mask)
+            #                 prompt_tags.append(prompt_tag)
+            #                 prompt_origins.append(prompt_origin)
 
             label = [self.default_tag] + \
                 item["label"][:self.max_seq_length-2]+[self.default_tag]
