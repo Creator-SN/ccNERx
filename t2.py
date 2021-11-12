@@ -24,6 +24,7 @@ args = {
     'task_name': 'Loader_test',
     "use_gpu": True,
     "debug": True,
+    "pass_none_rule": True,
     "tag_rules": {
         "PER.NOM": "人的象征",
         "LOC.NAM": "地点",
@@ -33,24 +34,24 @@ args = {
         "ORG.NOM": "组织的象征",
         "LOC.NOM": "地点的象征",
         "GPE.NOM": "政治实体的象征",
-        "ORG": "组织",
-        "LOC": "地点",
-        "PER": "人",
-        "Time": "时间",
-        "Thing": "物品",
-        "Metric": "测量单位",
-        "Abstract": "作品",
-        "Physical": "实体",
-        "Term": "术语",
-        "company": "企业",
-        "name": "名字",
-        "game": "游戏",
-        "movie": "电影",
-        "position": "职位",
-        "address": "地址",
-        "government": "政府",
-        "scene": "景点",
-        "book": "书名"
+        # "ORG": "组织",
+        # "LOC": "地点",
+        # "PER": "人",
+        # "Time": "时间",
+        # "Thing": "物品",
+        # "Metric": "测量单位",
+        # "Abstract": "作品",
+        # "Physical": "实体",
+        # "Term": "术语",
+        # "company": "企业",
+        # "name": "名字",
+        # "game": "游戏",
+        # "movie": "电影",
+        # "position": "职位",
+        # "address": "地址",
+        # "government": "政府",
+        # "scene": "景点",
+        # "book": "书名"
     }
 }
 loader = LXLoader(**args)
@@ -60,7 +61,7 @@ print(len(loader.myData))
 
 # %%
 choices = ("input_ids","origin_labels","input_labels","labels")
-for i in loader.myData[10:11][choices[2]].tolist():
+for i in loader.myData[10:11][choices[1]].tolist():
     print(loader.tokenizer.decode(i))
     # print(loader.tag_vocab.id2token(i))
 

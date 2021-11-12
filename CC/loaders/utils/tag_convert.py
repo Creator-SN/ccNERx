@@ -2,9 +2,10 @@ from typing import *
 
 
 class TagConvert():
-    def __init__(self, rules: Dict[str, str], default_tag: str = 'O'):
+    def __init__(self, rules: Dict[str, str], default_tag: str = 'O', not_found_action: str = "exception"):
         self.rules: Dict[str, str] = rules
         self.default_tag: str = default_tag
+        self.not_found_action: str = not_found_action
 
     def word2prompt(self, word: List[str]) -> Tuple[List[str], List[str], List[str], List[str]]:
         if isinstance(word, str):
@@ -42,7 +43,10 @@ class TagConvert():
             word = list(word)
         single_tag = tag[0].split('-')[-1]
         if single_tag not in self.rules:
-            raise KeyError(f"tag: {single_tag} not found in rules")
+            if self.not_found_action == "exception":
+                raise KeyError(f"tag: {single_tag} not found in rules")
+            else:
+                return tuple([None] * 4)
         prompt_origin = word+list(f"是一个{self.rules[single_tag]}")+[',']
         prompt = word + list(f"是一个") + \
             ['[MASK]' for _ in self.rules[single_tag]]+[',']
