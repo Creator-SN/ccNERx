@@ -8,7 +8,7 @@ args = {
     'hidden_dim': 300,
     'max_seq_length': 150,
     'max_scan_num': 100,
-    'train_file': './data/weibonew/train_test.json',
+    'train_file': './data/weibo/train.json',
     'eval_file': './data/weibo/dev.json',
     'test_file': './data/weibo/test.json',
     'bert_vocab_file': './model/chinese_wwm_ext/vocab.txt',
@@ -53,14 +53,14 @@ args = {
         "book": "书名"
     }
 }
-loader = LabelLXLoader(**args)
+loader = LXLoader(**args)
 
 #%%
 print(len(loader.myData))
 
 # %%
 choices = ("input_ids","origin_labels","input_labels","labels")
-for i in loader.myData[:10][choices[2]].tolist():
+for i in loader.myData[10:11][choices[2]].tolist():
     print(loader.tokenizer.decode(i))
     # print(loader.tag_vocab.id2token(i))
 
