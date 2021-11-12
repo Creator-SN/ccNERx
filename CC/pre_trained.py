@@ -102,7 +102,7 @@ class NERPreTrainer(ITrainer):
             epoch_train_loss.append(np.mean(train_loss))
 
             self.analysis.save_csv('./data_record/{}'.format(self.task_name),
-                                   '{}.csv'.format(self.model_name), loss=epoch_train_loss)
+                                   '{}_loss'.format(self.model_name), loss=epoch_train_loss)
             yield (epoch + 1, self.analysis.train_record, model_uid)
 
     def save_model(self, current_step=0):
