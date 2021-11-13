@@ -40,6 +40,7 @@ class LXLoader(IDataLoader):
             .add_argument("task_name", str) \
             .add_argument("tag_rules", dict) \
             .add_argument("debug", bool, defaultValue=False) \
+            .add_argument("pass_none_rule", bool, defaultValue=False) \
             .parse(self, **args)
 
         self.read_data_set()
@@ -87,7 +88,8 @@ class LXLoader(IDataLoader):
         self.vocab_embedding, self.embedding_dim = VocabEmbedding(self.word_vocab, cache_dir=f"./temp/{self.task_name}").build_from_file(
             self.word_embedding_file, self.max_scan_num, self.add_seq_vocab).get_embedding()
 
-        self.tag_convert: TagConvert = TagConvert(self.tag_rules)
+        self.tag_convert: TagConvert = TagConvert(
+            self.tag_rules, not_found_action="return" if self.pass_none_rule else "exception")
         self.tokenizer = BertTokenizer.from_pretrained(self.bert_vocab_file)
 
     def verify_data(self):
@@ -153,16 +155,18 @@ class LEXBertDataSet(Dataset):
             if "label" not in item:
                 raise KeyError(f"key label not exists in item: {item}")
             # resolve prompt
-            
+
             prompts = []
             prompt_masks = []
             prompt_tags = []
             prompt_origins = []
             exist_prompt = set()
             entity_collections = get_entities(item["label"], item["text"])
-            for _,_, label, word in entity_collections:
+            for _, _, label, word in entity_collections:
                 prompt, prompt_mask, prompt_tag, prompt_origin = self.tag_convert.tag2prompt(
-                    get_labels(label,len(word)), word)
+                    get_labels(label, len(word)), word)
+                if prompt is None:
+                    continue
                 key = hash(str(prompt_origin))
                 if key not in exist_prompt:
                     exist_prompt.add(key)
@@ -186,6 +190,8 @@ class LEXBertDataSet(Dataset):
                         continue
                     prompt, prompt_mask, prompt_tag, prompt_origin = self.tag_convert.tag2prompt(
                         tag, word)
+                    if prompt is None:
+                        continue
                     key = hash(str(prompt_origin))
                     if key not in exist_prompt:
                         exist_prompt.add(key)
