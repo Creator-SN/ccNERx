@@ -36,30 +36,57 @@ class LLoader(IDataLoader):
             .add_argument("task_name", str) \
             .parse(self, **args)
 
+        # get cache_key
+        files = [self.train_file,self.eval_file,self.test_file,self.tag_file] 
+        self.cache_key = [FileReader(file).etag() if file is not None else "None" for file in files]
+        self.cache_key = "_".join(self.cache_key)
+        self.cache = FileCache(f"./temp/{self.cache_key}")
+
         self.read_data_set()
         self.verify_data()
         self.process_data(
             self.batch_size, self.eval_batch_size, self.test_batch_size)
 
-    def read_data_set(self):
-        # build lexicon tree
-        self.lexicon_tree: Trie = TrieFactory.get_trie_from_vocabs(
-            [self.word_vocab_file], self.max_scan_num)
-
+    def read_data_set(self):      
         self.data_files: List[str] = [
             self.train_file, self.eval_file, self.test_file]
+              
+        # build lexicon tree
+        cache = self.cache.group(self.max_scan_num)
+        key = f"lexicon_tree"
+        if cache.exists(key):
+            self.lexicon_tree = cache.load(key)
+        else:
+            self.lexicon_tree: Trie = TrieFactory.get_trie_from_vocabs(
+                [self.word_vocab_file], self.max_scan_num)
+            cache.save(key,self.lexicon_tree)
 
-        self.matched_words: List[str] = TrieFactory.get_all_matched_word_from_dataset(
-            self.data_files, self.lexicon_tree)
+        key = f"matched_words"
+        if cache.exists(key):
+            self.matched_words = cache.load(key)
+        else:
+            self.matched_words: List[str] = TrieFactory.get_all_matched_word_from_dataset(
+                self.data_files, self.lexicon_tree)
+            cache.save(key,self.matched_words)
 
-        self.word_vocab: Vocab = Vocab().from_list(
-            self.matched_words, is_word=True, has_default=False, unk_num=5)
+        key = "word_vocab"
+        if cache.exists(key):
+            self.word_vocab = cache.load(key)
+        else:
+            self.word_vocab: Vocab = Vocab().from_list(
+                self.matched_words, is_word=True, has_default=False, unk_num=5)
+            cache.save(key,self.word_vocab)
 
         self.tag_vocab: Vocab = Vocab().from_files(
             [self.tag_file], is_word=False)
 
-        self.vocab_embedding, self.embedding_dim = VocabEmbedding(self.word_vocab, cache_dir=f"./temp/{self.task_name}").build_from_file(
-            self.word_embedding_file, self.max_scan_num, self.add_seq_vocab).get_embedding()
+        key = "vocab_embedding"
+        if cache.exists(key):
+            self.vocab_embedding,self.embedding_dim = cache.load(key)
+        else:
+            self.vocab_embedding, self.embedding_dim = VocabEmbedding(self.word_vocab, cache_dir=f"./temp/{self.task_name}").build_from_file(
+                self.word_embedding_file, self.max_scan_num, self.add_seq_vocab).get_embedding()
+            cache.save(key,(self.vocab_embedding,self.embedding_dim))
 
         self.tokenizer = BertTokenizer.from_pretrained(self.bert_vocab_file)
 
@@ -69,18 +96,20 @@ class LLoader(IDataLoader):
     def process_data(self, batch_size: int, eval_batch_size: int = None, test_batch_size: int = None):
         if self.use_test:
             self.myData_test = LEBertDataSet(self.data_files[2], self.tokenizer, self.lexicon_tree,
-                                             self.word_vocab, self.tag_vocab, self.max_word_num, self.max_seq_length, self.default_tag, self.do_predict)
+                                            self.word_vocab, self.tag_vocab, self.max_word_num, self.max_seq_length, self.default_tag, self.do_predict)
             self.dataiter_test = DataLoader(
                 self.myData_test, batch_size=test_batch_size)
         else:
             self.myData = LEBertDataSet(self.data_files[0], self.tokenizer, self.lexicon_tree, self.word_vocab,
                                         self.tag_vocab, self.max_word_num, self.max_seq_length, self.default_tag, do_shuffle=self.do_shuffle)
+
             self.dataiter = DataLoader(self.myData, batch_size=batch_size)
             if self.output_eval:
+                key = "eval_data"
                 self.myData_eval = LEBertDataSet(self.data_files[1], self.tokenizer, self.lexicon_tree, self.word_vocab,
                                                  self.tag_vocab, self.max_word_num,  self.max_seq_length, self.default_tag)
                 self.dataiter_eval = DataLoader(
-                    self.myData_eval, batch_size=eval_batch_size)
+                        self.myData_eval, batch_size=eval_batch_size)
 
     def __call__(self):
         if self.use_test:

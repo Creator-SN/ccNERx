@@ -210,8 +210,7 @@ pre_trainer = NERPreTrainer(**args)
 
 for i in pre_trainer():
     a = i
-
-exit()
+    
 # %%
 from CC.loaders.utils import LabelCounter
 counter = LabelCounter()

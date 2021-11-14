@@ -1,5 +1,5 @@
 from typing import List
-from CC.loaders.utils import *
+from . import *
 from tqdm import *
 import json
 
@@ -19,12 +19,12 @@ class TrieFactory():
         """
         vocabs = set()
         for file in vocab_files:
-            file_lines = FileUtil.count_lines(file)
+            reader = FileReader(file)
+            file_lines = reader.line_size()
             if max_line != -1:
                 file_lines = min(max_line, file_lines)
-            for index, line in tqdm(enumerate(FileUtil.line_iter(file)), desc="load vocabs into trie", total=file_lines):
-                if max_line >= 0 and index >= max_line:
-                    break
+            for index in tqdm(range(file_lines), desc="load vocabs into trie", total=file_lines):
+                line = reader.line(index)
                 line = line.strip().split()
                 word = line[0].strip()
                 vocabs.add(word)
@@ -46,8 +46,9 @@ class TrieFactory():
         """
         matched_words = set()
         for file in dataset_files:
-            file_lines = FileUtil().count_lines(file)
-            for line in tqdm(FileUtil.line_iter(file), desc="load dataset matched word", total=file_lines):
+            reader = FileReader(file)
+            file_lines = reader.line_size()
+            for line in tqdm(reader.line_iter(), desc="load dataset matched word", total=file_lines):
                 data = json.loads(line.strip())
                 assert 'text' in data, 'dataset type error, expected text property in object'
                 text = data['text']

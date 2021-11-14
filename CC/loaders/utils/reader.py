@@ -106,7 +106,7 @@ class FileReader():
         Returns:
             int: bit lenth
         """
-        if self._size is not None:
+        if self._size is None:
             self._size = os.path.getsize(self.file_name)
         return self._size
 
