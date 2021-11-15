@@ -24,13 +24,17 @@ class FileCache():
             pickle.dump(obj,f)
         return True
 
-    def load(self,key)->Any:
+    def load(self,key,construct=None)->Any:
         path = self._get_path(f"{key}")
         if self.exists(key):
             with open(path,"rb") as f:
                 if self.debug:
                     print(f"load cached {path}")
                 return pickle.load(f)
+        if construct is not None:
+            obj = construct()
+            self.save(key,obj)
+            return obj
         return None
 
     def group(self,key)->FileCache:

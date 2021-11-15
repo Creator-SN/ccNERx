@@ -7,7 +7,7 @@ args = {
     'pretrained_file_name': './model/chinese_wwm_ext/pytorch_model.bin',
     'hidden_dim': 300,
     'max_seq_length': 150,
-    'max_scan_num': 100,
+    'max_scan_num': 1000000,
     'train_file': './data/weibo/train.json',
     'eval_file': './data/weibo/dev.json',
     'test_file': './data/weibo/test.json',
@@ -61,9 +61,12 @@ print(len(loader.myData))
 
 # %%
 choices = ("input_ids","origin_labels","input_labels","labels")
-for i in loader.myData[10:11][choices[1]].tolist():
-    print(loader.tokenizer.decode(i))
-    # print(loader.tag_vocab.id2token(i))
+index = 0
+for i in loader.myData[10:11][choices[index]].tolist():
+    if index<3:
+        print(loader.tokenizer.decode(i))
+    else:
+        print(loader.tag_vocab.id2token(i))
 
 
 # %%

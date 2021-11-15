@@ -53,40 +53,21 @@ class LLoader(IDataLoader):
               
         # build lexicon tree
         cache = self.cache.group(self.max_scan_num)
-        key = f"lexicon_tree"
-        if cache.exists(key):
-            self.lexicon_tree = cache.load(key)
-        else:
-            self.lexicon_tree: Trie = TrieFactory.get_trie_from_vocabs(
-                [self.word_vocab_file], self.max_scan_num)
-            cache.save(key,self.lexicon_tree)
 
-        key = f"matched_words"
-        if cache.exists(key):
-            self.matched_words = cache.load(key)
-        else:
-            self.matched_words: List[str] = TrieFactory.get_all_matched_word_from_dataset(
-                self.data_files, self.lexicon_tree)
-            cache.save(key,self.matched_words)
+        self.lexicon_tree = cache.load("lexicon_tree",lambda: TrieFactory.get_trie_from_vocabs(
+                [self.word_vocab_file], self.max_scan_num))
 
-        key = "word_vocab"
-        if cache.exists(key):
-            self.word_vocab = cache.load(key)
-        else:
-            self.word_vocab: Vocab = Vocab().from_list(
-                self.matched_words, is_word=True, has_default=False, unk_num=5)
-            cache.save(key,self.word_vocab)
+        self.matched_words = cache.load("matched_words",lambda: TrieFactory.get_all_matched_word_from_dataset(
+            self.data_files, self.lexicon_tree))
+
+        self.word_vocab = cache.load("word_vocab",lambda: Vocab().from_list(
+            self.matched_words, is_word=True, has_default=False, unk_num=5))
 
         self.tag_vocab: Vocab = Vocab().from_files(
             [self.tag_file], is_word=False)
 
-        key = "vocab_embedding"
-        if cache.exists(key):
-            self.vocab_embedding,self.embedding_dim = cache.load(key)
-        else:
-            self.vocab_embedding, self.embedding_dim = VocabEmbedding(self.word_vocab, cache_dir=f"./temp/{self.task_name}").build_from_file(
-                self.word_embedding_file, self.max_scan_num, self.add_seq_vocab).get_embedding()
-            cache.save(key,(self.vocab_embedding,self.embedding_dim))
+        self.vocab_embedding,self.embedding_dim = cache.load("vocab_embedding",lambda: VocabEmbedding(self.word_vocab, cache_dir=f"./temp/{self.task_name}").build_from_file(
+            self.word_embedding_file, self.max_scan_num, self.add_seq_vocab).get_embedding())
 
         self.tokenizer = BertTokenizer.from_pretrained(self.bert_vocab_file)
 

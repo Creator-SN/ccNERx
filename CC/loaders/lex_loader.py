@@ -52,26 +52,18 @@ class LXLoader(IDataLoader):
         self.verify_data()
         self.process_data()
 
-    def __restore(self, cache:FileCache, key: str, construct):
-        if cache.exists(key):
-            return cache.load(key)
-        else:
-            obj = construct()
-            cache.save(key,obj)
-            return obj
-
     def read_data_set(self):
         self.data_files = [self.train_file, self.eval_file, self.test_file]
-        # loading lexicon tree
-        cache = self.cache.group(self.max_scan_num)
         
-        self.lexicon_tree = self.__restore(cache,"lexicon_tree",lambda: TrieFactory.get_trie_from_vocabs(
+        cache = self.cache.group(self.max_scan_num)
+        # loading lexicon tree
+        self.lexicon_tree = cache.load("lexicon_tree",lambda: TrieFactory.get_trie_from_vocabs(
             [self.word_vocab_file], self.max_scan_num))
 
-        self.matched_words: List[str] = self.__restore(cache,"matched_words",lambda: TrieFactory.get_all_matched_word_from_dataset(
+        self.matched_words: List[str] = cache.load("matched_words",lambda: TrieFactory.get_all_matched_word_from_dataset(
             self.data_files, self.lexicon_tree))
         # restore all word_vocab_file_with_tag
-        self.word_vocab = self.__restore(cache,"word_vocab_tag",lambda: VocabTag().from_files(
+        self.word_vocab = cache.load("word_vocab_tag",lambda: VocabTag().from_files(
             [self.word_vocab_file_with_tag], is_word=True, has_default=False, unk_num=5, max_scan_num=self.max_scan_num))
 
         matched_words_with_tags = [(word, self.word_vocab.tag(word))
@@ -82,7 +74,7 @@ class LXLoader(IDataLoader):
 
         self.tag_vocab = Vocab().from_files([self.tag_file])
 
-        self.vocab_embedding, self.embedding_dim = self.__restore(cache,"word_embedding",lambda: VocabEmbedding(self.word_vocab, cache_dir=f"./temp/{self.task_name}").build_from_file(
+        self.vocab_embedding, self.embedding_dim = cache.load("word_embedding",lambda: VocabEmbedding(self.word_vocab, cache_dir=f"./temp/{self.task_name}").build_from_file(
             self.word_embedding_file, self.max_scan_num, self.add_seq_vocab).get_embedding())
 
         self.tag_convert: TagConvert = TagConvert(
@@ -160,6 +152,9 @@ class LEXBertDataSet(Dataset):
             exist_prompt = set()
             entity_collections = get_entities(item["label"], item["text"])
             for _, _, label, word in entity_collections:
+                # skip S-
+                if len(word)==1:
+                    continue
                 prompt, prompt_mask, prompt_tag, prompt_origin = self.tag_convert.tag2prompt(
                     get_labels(label, len(word)), word)
                 if prompt is None:
