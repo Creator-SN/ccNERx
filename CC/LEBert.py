@@ -172,7 +172,7 @@ class BertLayer(nn.Module):
         if self.has_word_attn:
             assert input_word_mask is not None
 
-            # transform
+            # transform 200 => 768
             word_outputs = self.word_transform(
                 input_word_embeddings)  # [N, L, W, D]
             word_outputs = self.act(word_outputs)
