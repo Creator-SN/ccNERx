@@ -41,39 +41,30 @@ class LabelLXLoader(IDataLoader):
             .add_argument("debug", bool, defaultValue=False) \
             .parse(self, **args)
 
+        # get cache_key
+        files = [self.train_file,self.eval_file,self.test_file,self.tag_file] 
+        self.cache_key = [FileReader(file).etag() if file is not None else "None" for file in files]
+        self.cache_key = "_".join(self.cache_key)
+        self.cache = FileCache(f"./temp/{self.cache_key}")
+
         self.read_data_set()
         self.verify_data()
         self.process_data()
 
-    def __restore_attr(self, attr_name: str, construct, restore_path: str = None):
-        if restore_path is None:
-            # If the restore path is not set, directly construct
-            setattr(self, attr_name, construct())
-        else:
-            # If restore file exists, restore it
-            if os.path.exists(restore_path):
-                with open(restore_path, "rb") as f:
-                    setattr(self, attr_name, pickle.load(f))
-            else:
-                obj = construct()
-                setattr(self, attr_name, obj)
-                # save cache file for restore
-                with open(restore_path, "wb") as f:
-                    pickle.dump(obj, f)
-        return self
-
     def read_data_set(self):
         self.data_files = [self.train_file, self.eval_file, self.test_file]
+
+        cache = self.cache.group(self.max_scan_num)
+
         # loading lexicon tree
+        self.lexicon_tree = cache.load("lexicon_tree",lambda: TrieFactory.get_trie_from_vocabs(
+            [self.word_vocab_file], self.max_scan_num))
 
-        self.__restore_attr("lexicon_tree", lambda: TrieFactory.get_trie_from_vocabs(
-            [self.word_vocab_file], self.max_scan_num), getattr(self, "lexicon_tree_cache_path", None))
-
-        self.matched_words: List[str] = TrieFactory.get_all_matched_word_from_dataset(
-            self.data_files, self.lexicon_tree)
+        self.matched_words: List[str] = cache.load("matched_words",lambda: TrieFactory.get_all_matched_word_from_dataset(
+            self.data_files, self.lexicon_tree))
         # restore all word_vocab_file_with_tag
-        self.__restore_attr("word_vocab", lambda: VocabTag().from_files(
-            [self.word_vocab_file_with_tag], is_word=True, has_default=False, unk_num=5, max_scan_num=self.max_scan_num), getattr(self, "word_vocab_cache_path", None))
+        self.word_vocab = cache.load("word_vocab_tag",lambda: VocabTag().from_files(
+            [self.word_vocab_file_with_tag], is_word=True, has_default=False, unk_num=5, max_scan_num=self.max_scan_num))
 
         matched_words_with_tags = [(word, self.word_vocab.tag(word))
                                    for word in self.matched_words]
@@ -83,8 +74,8 @@ class LabelLXLoader(IDataLoader):
 
         self.tag_vocab = Vocab().from_files([self.tag_file])
 
-        self.vocab_embedding, self.embedding_dim = VocabEmbedding(self.word_vocab, cache_dir=f"./temp/{self.task_name}").build_from_file(
-            self.word_embedding_file, self.max_scan_num, self.add_seq_vocab).get_embedding()
+        self.vocab_embedding, self.embedding_dim = cache.load("word_embedding",lambda: VocabEmbedding(self.word_vocab).build_from_file(
+            self.word_embedding_file, self.max_scan_num, self.add_seq_vocab).get_embedding())
 
         self.tag_convert: TagConvert = TagConvert(self.tag_rules)
         self.tokenizer = BertTokenizer.from_pretrained(self.bert_vocab_file)

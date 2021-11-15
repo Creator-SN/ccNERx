@@ -73,7 +73,7 @@ class LXLoader(IDataLoader):
 
         self.tag_vocab = Vocab().from_files([self.tag_file])
 
-        self.vocab_embedding, self.embedding_dim = cache.load("word_embedding",lambda: VocabEmbedding(self.word_vocab, cache_dir=f"./temp/{self.task_name}").build_from_file(
+        self.vocab_embedding, self.embedding_dim = cache.load("word_embedding",lambda: VocabEmbedding(self.word_vocab).build_from_file(
             self.word_embedding_file, self.max_scan_num, self.add_seq_vocab).get_embedding())
 
         self.tag_convert: TagConvert = TagConvert(

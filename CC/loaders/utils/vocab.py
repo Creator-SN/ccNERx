@@ -33,7 +33,7 @@ class Vocab():
             self += word
         return self
 
-    def from_files(self, files: List[str], is_word: bool = False, has_default: bool = False, unk_num: str = 0, max_scan_num: int = -1):
+    def from_files(self, files: List[str], is_word: bool = False, has_default: bool = False, unk_num: str = 0, max_scan_num: int = -1,skip:int = 0):
         """get vocabs from file
 
         Args:
@@ -47,10 +47,12 @@ class Vocab():
         """
         words = []
         for file in files:
-            file_lines = FileUtil.count_lines(file)
+            reader = FileReader(file)
+            file_lines = reader.line_size()
             if max_scan_num != -1:
                 file_lines = min(max_scan_num, file_lines)
-            for index, line in tqdm(enumerate(FileUtil.line_iter(file)), desc="load vocab from files", total=file_lines):
+            for index in tqdm(range(skip,file_lines), desc="load vocab from files"):
+                line = reader.line(index)
                 line = line.strip()
                 if not line:
                     continue
