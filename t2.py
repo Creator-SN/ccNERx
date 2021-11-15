@@ -24,7 +24,7 @@ args = {
     'task_name': 'Loader_test',
     "use_gpu": True,
     "debug": True,
-    "pass_none_rule": True,
+    "pass_none_rule": False,
     "tag_rules": {
         "PER.NOM": "人的象征",
         "LOC.NAM": "地点",
@@ -34,30 +34,59 @@ args = {
         "ORG.NOM": "组织的象征",
         "LOC.NOM": "地点的象征",
         "GPE.NOM": "政治实体的象征",
-        # "ORG": "组织",
-        # "LOC": "地点",
-        # "PER": "人",
-        # "Time": "时间",
-        # "Thing": "物品",
-        # "Metric": "测量单位",
-        # "Abstract": "作品",
-        # "Physical": "实体",
-        # "Term": "术语",
-        # "company": "企业",
-        # "name": "名字",
-        # "game": "游戏",
-        # "movie": "电影",
-        # "position": "职位",
-        # "address": "地址",
-        # "government": "政府",
-        # "scene": "景点",
-        # "book": "书名"
+        "ORG": "组织",
+        "LOC": "地点",
+        "PER": "人",
+        "Time": "时间",
+        "Thing": "物品",
+        "Metric": "测量单位",
+        "Abstract": "作品",
+        "Physical": "实体",
+        "Term": "术语",
+        "company": "企业",
+        "name": "名字",
+        "game": "游戏",
+        "movie": "电影",
+        "position": "职位",
+        "address": "地址",
+        "government": "政府",
+        "scene": "景点",
+        "book": "书名"
     }
 }
-loader = LXLoader(**args)
+old_loader = LXLoader(**args)
+
+from CC.loaders.lex_loader_new import *
+new_loader = LXLoader(**args)
 
 #%%
-print(len(loader.myData))
+print(len(old_loader.myData))
+choices = ("input_ids","origin_labels","input_labels","labels")
+for i in range(len(old_loader.myData)):
+    flag = False
+    for j in range(len(choices)):
+        a = old_loader.myData[i][choices[j]]
+        b = new_loader.myData[i][choices[j]]
+        if not torch.equal(a,b):
+            flag = True
+            break
+    if flag:
+        for j in range(len(choices)):
+            a = old_loader.myData[i][choices[j]].tolist()
+            b = new_loader.myData[i][choices[j]].tolist()
+            print(choices[j])
+            if j<3:
+                print("old",old_loader.tokenizer.decode(a))
+                print("new",new_loader.tokenizer.decode(b))
+            else:
+                print("old",old_loader.tag_vocab.id2token(a))
+                print("new",new_loader.tag_vocab.id2token(b))
+            print("----------------")
+        input()
+        from IPython.display import clear_output
+        clear_output()
+    
+
 
 # %%
 choices = ("input_ids","origin_labels","input_labels","labels")
