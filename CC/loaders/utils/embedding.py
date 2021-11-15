@@ -38,23 +38,14 @@ class WordEmbedding():
 
 
 class VocabEmbedding():
-    def __init__(self, vocab: Vocab, cache_dir: str = "./temp/"):
+    def __init__(self, vocab: Vocab):
         self.vocab: Vocab = vocab
-        self.cache_dir: str = cache_dir
         self.dimension: int = 200
 
     def build_from_file(self,
                         embedding_path: str,
                         max_scan_num: int = 1000000,
                         add_seg_vocab: bool = False):
-        if not os.path.exists(self.cache_dir):
-            os.makedirs(self.cache_dir)
-        cache_path = os.path.join(self.cache_dir,
-                                  f"save_word_embedding_{max_scan_num}.pkl")
-        if os.path.exists(cache_path):
-            with open(cache_path, 'rb') as f:
-                self.embedding, self.dimension = pickle.load(f)
-            return self
         embedding_index = {}
         if embedding_path is not None:
             embedding_index, self.dimension, embedding_reader = WordEmbedding() \
@@ -71,8 +62,6 @@ class VocabEmbedding():
                     self.embedding[idx, :] = np_embedding
                 else:
                     self.embedding[idx, :] = self.random_embedding()
-        with open(cache_path, "wb") as f:
-            pickle.dump((self.embedding, self.dimension), f, protocol=4)
         return self
 
     def random_embedding(self) -> np.numarray:

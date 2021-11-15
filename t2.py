@@ -1,5 +1,7 @@
 # %%
 from CC.loaders import *
+from CC.loaders.label_le_loader import LabelLLoader
+
 args = {
     'num_epochs': 30,
     'num_gpus': [0, 1, 2, 3],
@@ -17,6 +19,7 @@ args = {
     "word_embedding_file": "./data/tencent/word_embedding.txt",
     "word_vocab_file": "./data/tencent/tencent_vocab.txt",
     "word_vocab_file_with_tag": "./data/tencent/tencent_vocab_with_tag.json",
+    "tag_embedding_file":"data/tencent/label_embedding.txt",
     "default_tag": "O",
     'batch_size': 8,
     'eval_batch_size': 64,
@@ -24,49 +27,89 @@ args = {
     'task_name': 'Loader_test',
     "use_gpu": True,
     "debug": True,
-    "pass_none_rule": True,
+    "pass_none_rule": False,
     "tag_rules": {
         "PER.NOM": "人的象征",
         "LOC.NAM": "地点",
-        "PER.NAM": "人",
+        "PER.NAM": "人名",
         "GPE.NAM": "政治实体",
         "ORG.NAM": "组织",
         "ORG.NOM": "组织的象征",
         "LOC.NOM": "地点的象征",
         "GPE.NOM": "政治实体的象征",
-        # "ORG": "组织",
-        # "LOC": "地点",
-        # "PER": "人",
-        # "Time": "时间",
-        # "Thing": "物品",
-        # "Metric": "测量单位",
-        # "Abstract": "作品",
-        # "Physical": "实体",
-        # "Term": "术语",
-        # "company": "企业",
-        # "name": "名字",
-        # "game": "游戏",
-        # "movie": "电影",
-        # "position": "职位",
-        # "address": "地址",
-        # "government": "政府",
-        # "scene": "景点",
-        # "book": "书名"
+        "ORG": "组织",
+        "LOC": "地点",
+        "PER": "人",
+        "Time": "时间",
+        "Thing": "物品",
+        "Metric": "测量单位",
+        "Abstract": "作品",
+        "Physical": "实体",
+        "Term": "术语",
+        "company": "企业",
+        "name": "名字",
+        "game": "游戏",
+        "movie": "电影",
+        "position": "职位",
+        "address": "地址",
+        "government": "政府",
+        "scene": "景点",
+        "book": "书名"
     }
 }
-loader = LXLoader(**args)
+
+
+loader = LabelLLoader(**args)
 
 #%%
-print(len(loader.myData))
+old_loader = LXLoader(**args)
+
+from CC.loaders.lex_loader_new import *
+new_loader = LXLoader(**args)
+
+#%%
+print(len(old_loader.myData))
+choices = ("input_ids","origin_labels","input_labels","labels")
+for i in range(len(old_loader.myData)):
+    flag = False
+    for j in range(len(choices)):
+        a = old_loader.myData[i][choices[j]]
+        b = new_loader.myData[i][choices[j]]
+        if not torch.equal(a,b):
+            flag = True
+            break
+    if flag:
+        for j in range(len(choices)):
+            a = old_loader.myData[i][choices[j]].tolist()
+            b = new_loader.myData[i][choices[j]].tolist()
+            print(choices[j])
+            if j<3:
+                print("old",old_loader.tokenizer.decode(a))
+                print("new",new_loader.tokenizer.decode(b))
+            else:
+                print("old",old_loader.tag_vocab.id2token(a))
+                print("new",new_loader.tag_vocab.id2token(b))
+            print("----------------")
+        input()
+        from IPython.display import clear_output
+        clear_output()
+    
+
 
 # %%
-choices = ("input_ids","origin_labels","input_labels","labels")
-index = 0
-for i in loader.myData[10:11][choices[index]].tolist():
+choices = ("input_ids","origin_labels","input_labels","labels","matched_label_ids","matched_word_ids")
+index = 4
+for i in loader.myData[0:1][choices[index]].tolist():
     if index<3:
         print(loader.tokenizer.decode(i))
-    else:
+    elif index==3:
         print(loader.tag_vocab.id2token(i))
+    elif index==4:
+        print(loader.entity_tag_vocab.idx2item)
+        print(loader.entity_tag_vocab.id2token(i))
+    else:
+        print(loader.word_vocab.id2token(i))
+
 
 
 # %%
@@ -223,4 +266,40 @@ counter.pick("PER.NOM","人民")
 # %%
 print(counter.label_counter.keys())
 
+# %%
+from tools.tag_embedding_gen import *
+rules = {
+    "O":"非实体",
+    "PER.NOM": "人的象征",
+    "LOC.NAM": "地点",
+    "PER.NAM": "人",
+    "GPE.NAM": "政治实体",
+    "ORG.NAM": "组织",
+    "ORG.NOM": "组织的象征",
+    "LOC.NOM": "地点的象征",
+    "GPE.NOM": "政治实体的象征",
+    "ORG": "组织",
+    "LOC": "地点",
+    "PER": "人",
+    "Time": "时间",
+    "Thing": "物品",
+    "Metric": "测量单位",
+    "Abstract": "作品",
+    "Physical": "实体",
+    "Term": "术语",
+    "company": "企业",
+    "name": "名字",
+    "game": "游戏",
+    "movie": "电影",
+    "position": "职位",
+    "address": "地址",
+    "government": "政府",
+    "scene": "景点",
+    "book": "书名",   
+}
+gen = EmbeddingGenerator()
+for key in rules:
+    gen+=(key,rules[key])
+gen.to_file("data/tencent/label_embedding.txt")
+        
 # %%
