@@ -113,7 +113,7 @@ class LabelLLoader(IDataLoader):
                 'vocab_embedding': self.vocab_embedding,
                 'embedding_dim': self.embedding_dim,
                 "label_embedding": self.entity_tag_embedding,
-                "lable_embedding_dim": self.entity_tag_embedding_dim,
+                "label_embedding_dim": self.entity_tag_embedding_dim,
                 'word_vocab': self.word_vocab,
                 'tag_vocab': self.tag_vocab
             }
@@ -126,7 +126,7 @@ class LabelLLoader(IDataLoader):
                 'vocab_embedding': self.vocab_embedding,
                 'embedding_dim': self.embedding_dim,
                 "label_embedding": self.entity_tag_embedding,
-                "lable_embedding_dim": self.entity_tag_embedding_dim,
+                "label_embedding_dim": self.entity_tag_embedding_dim,
                 'word_vocab': self.word_vocab,
                 'tag_vocab': self.tag_vocab
             }
@@ -137,7 +137,7 @@ class LabelLLoader(IDataLoader):
                 'vocab_embedding': self.vocab_embedding,
                 'embedding_dim': self.embedding_dim,
                 "label_embedding": self.entity_tag_embedding,
-                "lable_embedding_dim": self.entity_tag_embedding_dim,
+                "label_embedding_dim": self.entity_tag_embedding_dim,
                 'word_vocab': self.word_vocab,
                 'tag_vocab': self.tag_vocab
             }
