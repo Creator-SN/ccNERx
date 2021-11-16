@@ -3,6 +3,7 @@ import torch
 import torch.nn as nn
 from transformers import BertConfig, BertModel
 from CC.LEBert import WCBertModel, BertPreTrainedModel
+from CC.PCBert import PCBertModel
 from CC.crf import CRF
 from CC.birnncrf import BiRnnCrf
 from ICCSupervised.ICCSupervised import IModel
@@ -11,7 +12,8 @@ from ICCSupervised.ICCSupervised import IModel
 class CCNERModel(IModel):
 
     def __init__(self, **args):
-        required_pretrained_embedding_models = ['LEBert', 'LEBertFusion']
+        required_pretrained_embedding_models = ['LEBert', 'LEBertFusion', 'PLEBert']
+        required_label_embedding_models = ['PLEBert']
         assert "model_name" in args, "argument model_name required"
         assert "bert_config_file_name" in args, "argument bert_config_file_name required"
         assert "pretrained_file_name" in args, "argument pretrained_file_name required"
@@ -25,6 +27,9 @@ class CCNERModel(IModel):
         if args['model_name'] in required_pretrained_embedding_models:
             assert "pretrained_embeddings" in args, "argument pretrained_embeddings required"
             self.pretrained_embeddings = args['pretrained_embeddings']
+        if args['model_name'] in required_label_embedding_models:
+            assert "label_embeddings" in args, "argument label_embeddings required"
+            self.label_embeddings = args['label_embeddings']
         self.load_model()
 
     def load_model(self):
@@ -35,6 +40,9 @@ class CCNERModel(IModel):
         elif self.model_name == 'LEBertFusion':
             self.model = LEBertModelFusion.from_pretrained(
             self.pretrained_file_name, pretrained_embeddings=self.pretrained_embeddings, config=config)
+        elif self.model_name == 'PLEBert':
+            self.model = PLEBertModel.from_pretrained(
+            self.pretrained_file_name, pretrained_embeddings=self.pretrained_embeddings, label_embeddings=self.label_embeddings, config=config)
         elif self.model_name == 'Bert':
             self.model = BertBaseModel.from_pretrained(
             self.pretrained_file_name, config=config)
@@ -187,6 +195,60 @@ class LEBertModelFusion(BertPreTrainedModel):
         sequence_output = torch.cat(
             (sequence_output, matched_word_embeddings), dim=-1)
         sequence_output = self.dropout(sequence_output)
+
+        return {
+            'mix_output': sequence_output,
+            'last_hidden_state': outputs.last_hidden_state,
+            'pooler_output': outputs.pooler_output,
+            'hidden_states': outputs.hidden_states,
+            'attentions': outputs.attentions,
+        }
+
+class PLEBertModel(BertPreTrainedModel):
+    '''
+    config: BertConfig
+    pretrained_embeddings: 预训练embeddings shape: size * 200
+    '''
+
+    def __init__(self, config, pretrained_embeddings, label_embeddings):
+        super().__init__(config)
+
+        word_vocab_size = pretrained_embeddings.shape[0]
+        embed_dim = pretrained_embeddings.shape[1]
+        self.word_embeddings = nn.Embedding(word_vocab_size, embed_dim)
+
+        label_vocab_size = label_embeddings.shape[0]
+        label_dim = label_embeddings.shape[1]
+        self.label_embeddings = nn.Embedding(label_vocab_size, label_dim)
+        self.bert = PCBertModel(config)
+
+        self.init_weights()
+
+        # init the embedding
+        self.word_embeddings.weight.data.copy_(
+            torch.from_numpy(pretrained_embeddings))
+        self.label_embeddings.weight.data.copy_(
+            torch.from_numpy(label_embeddings))
+        print("Load pretrained embedding from file.........")
+
+    def forward(
+            self,
+            **args
+    ):
+        matched_word_embeddings = self.word_embeddings(
+            args['matched_word_ids'])
+        matched_label_embeddings = self.label_embeddings(
+            args['matched_label_ids'])
+        outputs = self.bert(
+            input_ids=args['input_ids'],
+            attention_mask=args['attention_mask'],
+            token_type_ids=args['token_type_ids'],
+            matched_word_embeddings=matched_word_embeddings,
+            matched_label_embeddings=matched_label_embeddings,
+            matched_word_mask=args['matched_word_mask']
+        )
+
+        sequence_output = outputs[0]
 
         return {
             'mix_output': sequence_output,
