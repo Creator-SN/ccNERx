@@ -111,7 +111,9 @@ class LabelLLoader(IDataLoader):
                 'test_set': self.myData_test,
                 'test_iter': self.dataiter_test,
                 'vocab_embedding': self.vocab_embedding,
+                'label_embedding': self.entity_tag_embedding,
                 'embedding_dim': self.embedding_dim,
+                'label_embedding_dim': self.entity_tag_embedding_dim,
                 'word_vocab': self.word_vocab,
                 'tag_vocab': self.tag_vocab
             }
@@ -122,7 +124,9 @@ class LabelLLoader(IDataLoader):
                 'eval_set': self.myData_eval,
                 'eval_iter': self.dataiter_eval,
                 'vocab_embedding': self.vocab_embedding,
+                'label_embedding': self.entity_tag_embedding,
                 'embedding_dim': self.embedding_dim,
+                'label_embedding_dim': self.entity_tag_embedding_dim,
                 'word_vocab': self.word_vocab,
                 'tag_vocab': self.tag_vocab
             }
@@ -131,7 +135,9 @@ class LabelLLoader(IDataLoader):
                 'train_set': self.myData,
                 'train_iter': self.dataiter,
                 'vocab_embedding': self.vocab_embedding,
+                'label_embedding': self.entity_tag_embedding,
                 'embedding_dim': self.embedding_dim,
+                'label_embedding_dim': self.entity_tag_embedding_dim,
                 'word_vocab': self.word_vocab,
                 'tag_vocab': self.tag_vocab
             }

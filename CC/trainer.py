@@ -71,6 +71,8 @@ class NERTrainer(ITrainer):
         }
         if 'word_embedding_file' in args:
             model_args['pretrained_embeddings'] = self.vocab_embedding
+        if 'tag_embedding_file' in args:
+            model_args['label_embeddings'] = self.label_embedding
         if 'pretrained_file_name' in args:
             model_args['pretrained_file_name'] = args['pretrained_file_name']
 
@@ -93,6 +95,16 @@ class NERTrainer(ITrainer):
             self.dm = result['dm']
             self.tag_size = len(self.dm.tag_to_idx)
             self.analysis = CCAnalysis(self.dm.tagToIdx, self.dm.idxToTag)
+        
+        if self.loader_name == 'labelle_loader':
+            self.vocab_embedding = result['vocab_embedding']
+            self.embedding_dim = result['embedding_dim']
+            self.label_embedding = result['label_embedding']
+            self.label_embedding_dim = result['label_embedding_dim']
+            self.tag_vocab = result['tag_vocab']
+            self.tag_size = self.tag_vocab.__len__()
+            self.analysis = CCAnalysis(
+                self.tag_vocab.token2id, self.tag_vocab.id2token)
 
         if self.output_eval is not None:
             self.eval_set = result['eval_set']

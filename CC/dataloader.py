@@ -7,6 +7,7 @@ from CC.loaders.cn_loader import CNDataLoader
 from CC.loaders.cnx_loader import CNXDataLoader
 from CC.loaders.le_loader import LLoader
 from CC.loaders.lex_loader import LXLoader
+from CC.loaders.label_le_loader import LabelLLoader
 from CC.loaders.label_lex_loader import LabelLXLoader
 
 class AutoDataLoader(IDataLoader):
@@ -18,6 +19,7 @@ class AutoDataLoader(IDataLoader):
             'cnx_loader': CNXDataLoader,
             'le_loader': LLoader,
             'lex_loader': LXLoader,
+            'labelle_loader': LabelLLoader,
             'labellex_loader': LabelLXLoader
         }
         if self.loader_name not in dataloaders:

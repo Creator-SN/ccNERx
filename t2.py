@@ -270,20 +270,20 @@ print(counter.label_counter.keys())
 from tools.tag_embedding_gen import *
 rules = {
     "O":"非实体",
-    "PER.NOM": "人的象征",
-    "LOC.NAM": "地点",
-    "PER.NAM": "人",
-    "GPE.NAM": "政治实体",
-    "ORG.NAM": "组织",
-    "ORG.NOM": "组织的象征",
-    "LOC.NOM": "地点的象征",
-    "GPE.NOM": "政治实体的象征",
-    "ORG": "组织",
-    "LOC": "地点",
-    "PER": "人",
+    "PER.NOM": "指代人名",
+    "LOC.NAM": "地名",
+    "PER.NAM": "人名",
+    "GPE.NAM": "政体",
+    "ORG.NAM": "机构",
+    "ORG.NOM": "指代机构",
+    "LOC.NOM": "指代地名",
+    "GPE.NOM": "指代政体",
+    "ORG": "机构",
+    "LOC": "地名",
+    "PER": "人名",
     "Time": "时间",
     "Thing": "物品",
-    "Metric": "测量单位",
+    "Metric": "度量",
     "Abstract": "作品",
     "Physical": "实体",
     "Term": "术语",
@@ -295,7 +295,7 @@ rules = {
     "address": "地址",
     "government": "政府",
     "scene": "景点",
-    "book": "书名",   
+    "book": "书名"
 }
 gen = EmbeddingGenerator()
 for key in rules:
