@@ -103,7 +103,7 @@ class BertLayer(nn.Module):
             self.act = nn.Tanh()
 
             self.word_transform = nn.Linear(
-                config.word_embed_dim, config.hidden_size)
+                config.word_embed_dim + config.label_embed_dim, config.hidden_size)
             self.word_word_weight = nn.Linear(
                 config.hidden_size, config.hidden_size)
             attn_W = torch.zeros(config.hidden_size, config.hidden_size)
@@ -120,6 +120,7 @@ class BertLayer(nn.Module):
             hidden_states,
             attention_mask=None,
             input_word_embeddings=None,
+            input_label_embeddings=None,
             input_word_mask=None,
             head_mask=None,
             encoder_hidden_states=None,
@@ -128,13 +129,13 @@ class BertLayer(nn.Module):
     ):
         """
         code refer to: https://github.com/huggingface/transformers/blob/master/src/transformers/modeling_bert.py
-        N: batch_size
+        B: batch_size
         L: seq length
         W: word size
         D: word_embedding dim
         Args:
-            input_word_embedding: [N, L, W, D]
-            input_word_mask: [N, L, W]
+            input_word_embedding: [B, L, W, D]
+            input_word_mask: [B, L, W]
         """
         # 1.character contextual representation
         self_attention_outputs = self.attention(
@@ -172,24 +173,25 @@ class BertLayer(nn.Module):
         if self.has_word_attn:
             assert input_word_mask is not None
 
-            # transform 200 => 768
+            input_word_fusion = torch.cat([input_word_embeddings, input_label_embeddings], dim=-1)
+            # transform word_dim + label_dim => 768 
             word_outputs = self.word_transform(
-                input_word_embeddings)  # [N, L, W, D]
+                input_word_fusion)  # [B, L, W, D]
             word_outputs = self.act(word_outputs)
             word_outputs = self.word_word_weight(word_outputs)
             word_outputs = self.dropout(word_outputs)
 
-            # attention_output = attention_output.unsqueeze(2) # [N, L, D] -> [N, L, 1, D]
+            # attention_output = attention_output.unsqueeze(2) # [B, L, D] -> [B, L, 1, D]
             alpha = torch.matmul(layer_output.unsqueeze(2),
-                                 self.attn_W)  # [N, L, 1, D]
+                                 self.attn_W)  # [B, L, 1, D]
             alpha = torch.matmul(alpha, torch.transpose(
-                word_outputs, 2, 3))  # [N, L, 1, W]
-            alpha = alpha.squeeze()  # [N, L, W]
+                word_outputs, 2, 3))  # [B, L, 1, W]
+            alpha = alpha.squeeze()  # [B, L, W]
             alpha = alpha + (1 - input_word_mask.float()) * (-10000.0)
-            alpha = torch.nn.Softmax(dim=-1)(alpha)  # [N, L, W]
-            alpha = alpha.unsqueeze(-1)  # [N, L, W, 1]
+            alpha = torch.nn.Softmax(dim=-1)(alpha)  # [B, L, W]
+            alpha = alpha.unsqueeze(-1)  # [B, L, W, 1]
             weighted_word_embedding = torch.sum(
-                word_outputs * alpha, dim=2)  # [N, L, D]
+                word_outputs * alpha, dim=2)  # [B, L, D]
             layer_output = layer_output + weighted_word_embedding
 
             layer_output = self.dropout(layer_output)
@@ -224,6 +226,7 @@ class BertEncoder(nn.Module):
             hidden_states,
             attention_mask=None,
             input_word_embeddings=None,
+            input_label_embeddings=None,
             input_word_mask=None,
             head_mask=None,
             encoder_hidden_states=None,
@@ -255,6 +258,7 @@ class BertEncoder(nn.Module):
                     hidden_states,
                     attention_mask,
                     input_word_embeddings,
+                    input_label_embeddings,
                     input_word_mask,
                     layer_head_mask,
                     encoder_hidden_states,
@@ -265,6 +269,7 @@ class BertEncoder(nn.Module):
                     hidden_states,
                     attention_mask,
                     input_word_embeddings,
+                    input_label_embeddings,
                     input_word_mask,
                     layer_head_mask,
                     encoder_hidden_states,
@@ -330,9 +335,9 @@ class BertPreTrainedModel(PreTrainedModel):
             module.bias.data.zero_()
 
 
-class WCBertModel(BertPreTrainedModel):
+class PCBertModel(BertPreTrainedModel):
     def __init__(self, config, add_pooling_layer=True):
-        super(WCBertModel, self).__init__(config)
+        super(PCBertModel, self).__init__(config)
 
         self.embeddings = BertEmbeddings(config)
         self.encoder = BertEncoder(config)
@@ -360,6 +365,7 @@ class WCBertModel(BertPreTrainedModel):
         attention_mask=None,
         token_type_ids=None,
         matched_word_embeddings=None,
+        matched_label_embeddings=None,
         matched_word_mask=None,
         position_ids=None,
         head_mask=None,
@@ -387,9 +393,10 @@ class WCBertModel(BertPreTrainedModel):
 
 
         Args:
-            input_ids: [N, L]
-            attention_mask: [N, L]
+            input_ids: [B, L]
+            attention_mask: [B, L]
             matched_word_embeddings: [B, L, W, D]
+            matched_label_embeddings: [B, L, W, D]
             matched_word_mask: [B, L, W]
         """
         output_attentions = output_attentions if output_attentions is not None else self.config.output_attentions
@@ -453,6 +460,7 @@ class WCBertModel(BertPreTrainedModel):
             embedding_output,
             attention_mask=extended_attention_mask,
             input_word_embeddings=matched_word_embeddings,
+            input_label_embeddings=matched_label_embeddings,
             input_word_mask=matched_word_mask,
             head_mask=head_mask,
             encoder_hidden_states=encoder_hidden_states,
