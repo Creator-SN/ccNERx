@@ -2,6 +2,7 @@ import os
 import re
 import uuid
 import torch
+import numpy as np
 import torch.nn as nn
 import torch.optim as optim
 from transformers import BertConfig, BertTokenizer, BertModel, get_linear_schedule_with_warmup
@@ -147,9 +148,14 @@ class NERTrainer(ITrainer):
             self.model.train()
             self.birnncrf.train()
 
-            pred_labels_list = []
-            true_labels_list = []
+            all_acc_list = []
+            all_p_list = []
+            all_r_list = []
+            all_f1_list = []
             for it in train_iter:
+                pred_labels_list = []
+                true_labels_list = []
+
                 train_step += 1
 
                 for key in it.keys():
@@ -195,22 +201,25 @@ class NERTrainer(ITrainer):
                         "M-", "I-") for label in self.analysis.idx2tag(pred_labels)]
                     true_labels = [label.replace(
                         "M-", "I-") for label in self.analysis.idx2tag(true_labels)]
+                    
                     pred_labels_list.append(pred_labels)
                     true_labels_list.append(true_labels)
 
-                train_acc = accuracy_score(true_labels_list, pred_labels_list)
-                train_precision = precision_score(
+                acc = accuracy_score(true_labels_list, pred_labels_list)
+                p = precision_score(
                     true_labels_list, pred_labels_list)
-                train_recall = recall_score(true_labels_list, pred_labels_list)
-                F1 = f1_score(true_labels_list, pred_labels_list)
+                r = recall_score(true_labels_list, pred_labels_list)
+                f1 = f1_score(true_labels_list, pred_labels_list)
 
-                # t1, t2 = self.analysis.getPrecision(it['labels'], pred)
-                # train_pred_num += t1
-                # train_correct_num += t2
-                # train_gold_num += self.analysis.getRecall(it['labels'])
+                all_acc_list.append(acc)
+                all_p_list.append(p)
+                all_r_list.append(r)
+                all_f1_list.append(f1)
 
-                # train_acc = train_correct_num / train_pred_num if train_pred_num != 0 else 0
-                # train_recall = train_correct_num / train_gold_num if train_gold_num != 0 else 0
+                train_acc = np.mean(all_acc_list)
+                train_precision = np.mean(all_p_list)
+                train_recall = np.mean(all_r_list)
+                F1 = np.mean(all_f1_list)
 
                 train_iter.set_description(
                     'Epoch: {}/{} Train'.format(epoch + 1, self.num_epochs))
@@ -242,9 +251,14 @@ class NERTrainer(ITrainer):
         self.model.eval()
         self.birnncrf.eval()
         with torch.no_grad():
-            pred_labels_list = []
-            true_labels_list = []
+            all_acc_list = []
+            all_p_list = []
+            all_r_list = []
+            all_f1_list = []
             for it in test_iter:
+                pred_labels_list = []
+                true_labels_list = []
+
                 for key in it.keys():
                     it[key] = self.cuda(it[key])
 
@@ -278,11 +292,21 @@ class NERTrainer(ITrainer):
                     pred_labels_list.append(pred_labels)
                     true_labels_list.append(true_labels)
 
-                test_acc = accuracy_score(true_labels_list, pred_labels_list)
-                test_precision = precision_score(
+                acc = accuracy_score(true_labels_list, pred_labels_list)
+                p = precision_score(
                     true_labels_list, pred_labels_list)
-                test_recall = recall_score(true_labels_list, pred_labels_list)
-                F1 = f1_score(true_labels_list, pred_labels_list)
+                r = recall_score(true_labels_list, pred_labels_list)
+                f1 = f1_score(true_labels_list, pred_labels_list)
+
+                all_acc_list.append(acc)
+                all_p_list.append(p)
+                all_r_list.append(r)
+                all_f1_list.append(f1)
+
+                test_acc = np.mean(all_acc_list)
+                test_precision = np.mean(all_p_list)
+                test_recall = np.mean(all_r_list)
+                F1 = np.mean(all_f1_list)
 
                 # t1, t2 = self.analysis.getPrecision(it['labels'], pred)
                 # test_pred_num += t1

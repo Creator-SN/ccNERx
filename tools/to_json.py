@@ -139,3 +139,30 @@ def generate_tags_from_json(files=[], tgt_file='tags_list.txt'):
     with open(tgt_file, encoding='utf-8', mode='a+') as f:
         for tag in tags:
             f.write('{}\n'.format(tag))
+
+def json_to_conll(src_file, tgt_file):
+    '''
+    Json to CoNLL file.
+    src_file: source Json format file.
+    tgt_file: output file name.
+    split_tag: split tag of each segment.
+    Example:
+    {"text": ["“", "那", "现", "在", "呢", "他", "们", "都", "告", "诉", "我", "确", "定", "要", "来", "香", "港", "开", "演", "唱", "会", "了", "，", "因", "为", "今", "天", "成", "绩", "非", "常", "好", "，", "所", "以", "我", "很", "开", "心", "。", "”"], "label": ["O", "O", "O", "O", "O", "O", "O", "O", "O", "O", "O", "O", "O", "O", "O", "B-GPE", "E-GPE", "O", "O", "O", "O", "O", "O", "O", "O", "B-DATE", "E-DATE", "O", "O", "O", "O", "O", "O", "O", "O", "O", "O", "O", "O", "O", "O"]}
+    '''
+    with open(src_file, encoding="utf-8", mode='r') as f:
+        ori_list = f.read().split('\n')
+    
+    if ori_list[-1] == '':
+        ori_list = ori_list[:-1]
+
+    ori_list = [json.loads(item) for item in ori_list]
+
+    result = []
+    for item in ori_list:
+        for idx, word in enumerate(item['text']):
+            tag = item['label'][idx]
+            result.append('{}\t{}\n'.format(word, tag))
+        result.append('\n')  
+
+    with open(tgt_file, encoding='utf-8', mode='w+') as f:
+        f.write(''.join(result))
