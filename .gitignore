@@ -7,3 +7,4 @@ data/
 data_record/**
 ner/bert/
 temp/
+local_temp_code

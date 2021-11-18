@@ -55,7 +55,10 @@ args = {
         "government": "政府",
         "scene": "景点",
         "book": "书名"
-    }
+    },
+    "ignore_rules":[
+        "name"
+    ]
 }
 
 
