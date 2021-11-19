@@ -40,6 +40,7 @@ class LXLoader(IDataLoader):
             .add_argument("tag_rules", dict) \
             .add_argument("debug", bool, defaultValue=False) \
             .add_argument("pass_none_rule", bool, defaultValue=False) \
+            .add_argument("skip_single_matched_word",bool,defaultValue=False) \
             .parse(self, **args)
 
         files = [self.train_file,self.eval_file,self.test_file,self.tag_file] 
@@ -175,6 +176,8 @@ class LEXBertDataSet(Dataset):
             # for matched_word add prompt
             for words in matched_words:
                 for word in words:
+                    if self.skip_single_matched_word and len(word)==1:
+                        continue
                     tag = self.word_vocab.tag(word)
                     # if the word tag is "O", skip...
                     if tag[0] == self.default_tag:

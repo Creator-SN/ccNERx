@@ -1,6 +1,5 @@
 # %%
 from CC.loaders import *
-from CC.loaders.label_le_loader import LabelLLoader
 
 args = {
     'num_epochs': 30,
@@ -58,11 +57,12 @@ args = {
     },
     "ignore_rules":[
         "name"
-    ]
+    ],
+    "skip_single_matched_word":True,
 }
 
 
-loader = LabelLLoader(**args)
+loader = LXLoader(**args)
 
 #%%
 old_loader = LXLoader(**args)
@@ -101,8 +101,8 @@ for i in range(len(old_loader.myData)):
 
 # %%
 choices = ("input_ids","origin_labels","input_labels","labels","matched_label_ids","matched_word_ids")
-index = 4
-for i in loader.myData[0:1][choices[index]].tolist():
+index = 1
+for i in loader.myData[0:10][choices[index]].tolist():
     if index<3:
         print(loader.tokenizer.decode(i))
     elif index==3:
@@ -112,6 +112,7 @@ for i in loader.myData[0:1][choices[index]].tolist():
         print(loader.entity_tag_vocab.id2token(i))
     else:
         print(loader.word_vocab.id2token(i))
+
 
 
 
