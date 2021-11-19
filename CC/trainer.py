@@ -225,14 +225,13 @@ class NERTrainer(ITrainer):
                     'Epoch: {}/{} Train'.format(epoch + 1, self.num_epochs))
                 train_iter.set_postfix(train_loss=train_loss / train_count, train_acc=train_acc, train_precision=train_precision,
                                        train_recall=train_recall, F1=F1)
-                #    =(2 * train_acc * train_recall) / (train_acc + train_recall + alpha))
-                self.analysis.append_train_record({
-                    'loss': loss.data.item(),
-                    # 'f1': (2 * train_acc * train_recall) / (train_acc + train_recall + alpha),
-                    'f1': F1,
-                    'acc': train_precision,
-                    'recall': train_recall
-                })
+            self.analysis.append_train_record({
+                'loss': loss.data.item(),
+                # 'f1': (2 * train_acc * train_recall) / (train_acc + train_recall + alpha),
+                'f1': F1,
+                'acc': train_precision,
+                'recall': train_recall
+            })
 
             model_uid = self.save_model(train_step)
             if self.eval_data:

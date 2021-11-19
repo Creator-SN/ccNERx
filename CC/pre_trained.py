@@ -66,6 +66,7 @@ class NERPreTrainer(ITrainer):
         self.model.to(device)
 
         train_step = 0
+        train_steps = []
         epoch_train_loss = []
         for epoch in range(self.num_epochs):
             train_count = 0
@@ -99,10 +100,11 @@ class NERPreTrainer(ITrainer):
                 })
 
             model_uid = self.save_model(train_step)
+            train_steps.append(train_step)
             epoch_train_loss.append(np.mean(train_loss))
 
             self.analysis.save_csv('./data_record/{}'.format(self.task_name),
-                                   '{}_loss'.format(self.model_name), loss=epoch_train_loss)
+                                   '{}_loss'.format(self.model_name), loss=epoch_train_loss, step=train_steps)
             yield (epoch + 1, self.analysis.train_record, model_uid)
 
     def save_model(self, current_step=0):
