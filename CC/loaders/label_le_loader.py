@@ -35,6 +35,7 @@ class LabelLLoader(IDataLoader):
             .add_argument("do_shuffle", bool, defaultValue=False) \
             .add_argument("do_predict", bool, defaultValue=False) \
             .add_argument("task_name", str) \
+            .add_argument("ignore_rules",list,optional=True) \
             .parse(self, **args)
 
         # get cache_key
@@ -90,18 +91,18 @@ class LabelLLoader(IDataLoader):
     def process_data(self, batch_size: int, eval_batch_size: int = None, test_batch_size: int = None):
         if self.use_test:
             self.myData_test = LEBertDataSet(self.data_files[2], self.tokenizer, self.lexicon_tree,
-                                            self.word_vocab, self.tag_vocab, self.max_word_num, self.max_seq_length, self.default_tag,self.entity_tag_vocab,self.do_predict)
+                                            self.word_vocab, self.tag_vocab, self.max_word_num, self.max_seq_length, self.default_tag,self.entity_tag_vocab,self.do_predict,ignore_rules=self.ignore_rules)
             self.dataiter_test = DataLoader(
                 self.myData_test, batch_size=test_batch_size)
         else:
             self.myData = LEBertDataSet(self.data_files[0], self.tokenizer, self.lexicon_tree, self.word_vocab,
-                                        self.tag_vocab, self.max_word_num, self.max_seq_length, self.default_tag,self.entity_tag_vocab, do_shuffle=self.do_shuffle)
+                                        self.tag_vocab, self.max_word_num, self.max_seq_length, self.default_tag,self.entity_tag_vocab, do_shuffle=self.do_shuffle,ignore_rules=self.ignore_rules)
 
             self.dataiter = DataLoader(self.myData, batch_size=batch_size)
             if self.output_eval:
                 key = "eval_data"
                 self.myData_eval = LEBertDataSet(self.data_files[1], self.tokenizer, self.lexicon_tree, self.word_vocab,
-                                                 self.tag_vocab, self.max_word_num,  self.max_seq_length, self.default_tag,self.entity_tag_vocab)
+                                                 self.tag_vocab, self.max_word_num,  self.max_seq_length, self.default_tag,self.entity_tag_vocab,ignore_rules=self.ignore_rules)
                 self.dataiter_eval = DataLoader(
                         self.myData_eval, batch_size=eval_batch_size)
 
@@ -144,7 +145,7 @@ class LabelLLoader(IDataLoader):
 
 
 class LEBertDataSet(Dataset):
-    def __init__(self, file: str, tokenizer, lexicon_tree: Trie, word_vocab: Vocab, tag_vocab: Vocab, max_word_num: int, max_seq_length: int, default_tag: str, entity_tag_vocab, do_predict: bool = False, do_shuffle: bool = False):
+    def __init__(self, file: str, tokenizer, lexicon_tree: Trie, word_vocab: Vocab, tag_vocab: Vocab, max_word_num: int, max_seq_length: int, default_tag: str, entity_tag_vocab, do_predict: bool = False, do_shuffle: bool = False,ignore_rules = None):
         self.file: str = file
         self.tokenizer = tokenizer
         self.lexicon_tree: Trie = lexicon_tree
@@ -156,6 +157,7 @@ class LEBertDataSet(Dataset):
         self.default_tag: str = default_tag
         self.do_shuffle: bool = do_shuffle
         self.do_predict: bool = do_predict
+        self.ignore_rules = ignore_rules
         if not self.do_predict:
             self.init_dataset()
 
@@ -200,6 +202,8 @@ class LEBertDataSet(Dataset):
                 tag = self.word_vocab.tag(word)[0]
                 if tag != self.default_tag:
                     tag = "-".join(tag.split("-")[1:])
+                if self.ignore_rules is not None and tag in self.ignore_rules:
+                    tag = self.default_tag
                 ids.append(self.entity_tag_vocab.token2id(tag))
             
             matched_label_ids[i][:len(ids)] = ids
