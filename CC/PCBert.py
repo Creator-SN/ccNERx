@@ -103,7 +103,7 @@ class BertLayer(nn.Module):
             self.act = nn.Tanh()
 
             self.word_transform = nn.Linear(
-                config.word_embed_dim + config.label_embed_dim, config.hidden_size)
+                config.word_embed_dim, config.hidden_size)
             self.word_word_weight = nn.Linear(
                 config.hidden_size, config.hidden_size)
             attn_W = torch.zeros(config.hidden_size, config.hidden_size)
@@ -111,6 +111,9 @@ class BertLayer(nn.Module):
             self.attn_W.data.normal_(mean=0.0, std=config.initializer_range)
             self.fuse_layernorm = nn.LayerNorm(
                 config.hidden_size, eps=config.layer_norm_eps)
+            
+            self.word_label_transform = nn.Linear(config.word_embed_dim + config.label_embed_dim, config.word_embed_dim)
+            self.label_label_weight = nn.Linear(config.word_embed_dim, config.word_embed_dim)
 
         self.intermediate = BertIntermediate(config)
         self.output = BertOutput(config)
@@ -173,7 +176,11 @@ class BertLayer(nn.Module):
         if self.has_word_attn:
             assert input_word_mask is not None
 
-            input_word_fusion = torch.cat([input_word_embeddings, input_label_embeddings], dim=-1)
+            label_feature = self.word_label_transform(torch.cat([input_word_embeddings, input_label_embeddings], dim=-1))
+            label_feature = self.act(label_feature)
+            label_feature = self.label_label_weight(label_feature)
+            label_feature = self.dropout(label_feature)
+            input_word_fusion = input_word_embeddings + label_feature
             # transform word_dim + label_dim => 768 
             word_outputs = self.word_transform(
                 input_word_fusion)  # [B, L, W, D]
