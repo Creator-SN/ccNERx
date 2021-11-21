@@ -149,7 +149,7 @@ class LEXBertDataSet(Dataset):
             prompt_masks = []
             prompt_tags = []
             prompt_origins = []
-            exist_prompt = set()
+            exist_entity = set()
             entity_collections = get_entities(item["label"], item["text"])
             for _, _, label, word in entity_collections:
                 # skip S-
@@ -159,9 +159,8 @@ class LEXBertDataSet(Dataset):
                     get_labels(label, len(word)), word)
                 if prompt is None:
                     continue
-                key = hash(str(prompt_origin))
-                if key not in exist_prompt:
-                    exist_prompt.add(key)
+                if ''.join(word) not in exist_entity:
+                    exist_entity.add(''.join(word))
                     prompts.append(prompt)
                     prompt_masks.append(prompt_mask)
                     prompt_tags.append(prompt_tag)
@@ -186,9 +185,8 @@ class LEXBertDataSet(Dataset):
                         tag, word)
                     if prompt is None:
                         continue
-                    key = hash(str(prompt_origin))
-                    if key not in exist_prompt:
-                        exist_prompt.add(key)
+                    if ''.join(word) not in exist_entity:
+                        exist_entity.add(''.join(word))
                         prompts.append(prompt)
                         prompt_masks.append(prompt_mask)
                         prompt_tags.append(prompt_tag)

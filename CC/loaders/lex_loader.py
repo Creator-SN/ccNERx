@@ -164,16 +164,16 @@ class LEXBertDataSet(Dataset):
             prompt_origins = []
             word = []
             labels = []
-            exist_prompt = set()
+            exists_entity = set()
             for ch, label in zip(item["text"], item["label"]):
                 if label != self.default_tag:
                     if label.startswith('B-'):
                         if len(word) != 0:
                             prompt, prompt_mask, prompt_tag, prompt_origin = self.tag_convert.tag2prompt(
                                 labels, word)
-                            key = hash(str(prompt_origin))
-                            if key not in exist_prompt:
-                                exist_prompt.add(key)
+                            key = ''.join(word)
+                            if key not in exists_entity:
+                                exists_entity.add(key)
                                 prompts.append(prompt)
                                 prompt_masks.append(prompt_mask)
                                 prompt_tags.append(prompt_tag)
@@ -185,9 +185,9 @@ class LEXBertDataSet(Dataset):
             if len(word) != 0:
                 prompt, prompt_mask, prompt_tag, prompt_origin = self.tag_convert.tag2prompt(
                     labels, word)
-                key = hash(str(prompt_origin))
-                if key not in exist_prompt:
-                    exist_prompt.add(key)
+                key = ''.join(word)
+                if key not in exists_entity:
+                    exists_entity.add(key)
                     prompts.append(prompt)
                     prompt_masks.append(prompt_mask)
                     prompt_tags.append(prompt_tag)
@@ -210,9 +210,9 @@ class LEXBertDataSet(Dataset):
                         continue
                     prompt, prompt_mask, prompt_tag, prompt_origin = self.tag_convert.tag2prompt(
                         tag, word)
-                    key = hash(str(prompt_origin))
-                    if key not in exist_prompt:
-                        exist_prompt.add(key)
+                    key = ''.join(word)
+                    if key not in exists_entity:
+                        exists_entity.add(key)
                         prompts.append(prompt)
                         prompt_masks.append(prompt_mask)
                         prompt_tags.append(prompt_tag)
