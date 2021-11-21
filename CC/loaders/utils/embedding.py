@@ -24,11 +24,11 @@ class WordEmbedding():
             line = line.strip().split()
             if index == 0:
                 self.dimension = int(line[1])
-            elif len(line) == 201:
+            elif len(line) == self.dimension+1:
                 self.embedding_index[line[0]] = index
-            elif len(line) > 201:
-                print(f"{line} length more than 201")
-                self.embedding_index[" ".join(line[:-200])] = index
+            elif len(line) > self.dimension+1:
+                print(f"{line} length more than {self.dimension+1}")
+                self.embedding_index[" ".join(line[:-self.dimension])] = index
             else:
                 print(f"{line} embedding error")
         return self
@@ -58,7 +58,7 @@ class VocabEmbedding():
                     line = embedding_reader.line(embedding_index[word])
                     line = line.strip().split()
                     np_embedding = np.empty(self.dimension)
-                    np_embedding = line[-200:]
+                    np_embedding = line[-self.dimension:]
                     self.embedding[idx, :] = np_embedding
                 else:
                     self.embedding[idx, :] = self.random_embedding()
