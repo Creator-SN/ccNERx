@@ -175,7 +175,7 @@ class LEXBertDataSet(Dataset):
                                 labels, word)
                             if prompt is None:
                                 continue
-                            key = ''.join(word)
+                            key = hash(str(prompt_origin))
                             if key not in exists_entity:
                                 exists_entity.add(key)
                                 prompts.append(prompt)
@@ -190,7 +190,7 @@ class LEXBertDataSet(Dataset):
                 prompt, prompt_mask, prompt_tag, prompt_origin = self.tag_convert.tag2prompt(
                     labels, word)
                 if prompt is not None:
-                    key = ''.join(word)
+                    key = hash(str(prompt_origin))
                     if key not in exists_entity:
                         exists_entity.add(key)
                         prompts.append(prompt)
@@ -217,7 +217,7 @@ class LEXBertDataSet(Dataset):
                         tag, word)
                     if prompt is None:
                         continue
-                    key = ''.join(word)
+                    key = hash(str(prompt_origin))
                     if key not in exists_entity:
                         exists_entity.add(key)
                         prompts.append(prompt)

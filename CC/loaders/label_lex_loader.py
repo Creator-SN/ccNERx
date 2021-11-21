@@ -161,8 +161,7 @@ class LEXBertDataSet(Dataset):
                         if len(word) != 0:
                             prompt, prompt_mask, prompt_tag, prompt_origin = self.tag_convert.tag2prompt(
                                 labels, word)
-                            # key = hash(str(prompt_origin))
-                            key = ''.join(word)
+                            key = hash(str(prompt_origin))
                             if key not in exist_prompt:
                                 exist_prompt.add(key)
                                 prompts.append(prompt)
@@ -193,8 +192,7 @@ class LEXBertDataSet(Dataset):
                         continue
                     prompt, prompt_mask, prompt_tag, prompt_origin = self.tag_convert.tag2prompt(
                         tag, word)
-                    # key = hash(str(prompt_origin))
-                    key = ''.join(word)
+                    key = hash(str(prompt_origin))
                     if key not in exist_prompt:
                         exist_prompt.add(key)
                         prompts.append(prompt)

@@ -159,8 +159,9 @@ class LEXBertDataSet(Dataset):
                     get_labels(label, len(word)), word)
                 if prompt is None:
                     continue
-                if ''.join(word) not in exist_entity:
-                    exist_entity.add(''.join(word))
+                key = hash(str(prompt_origin))
+                if key not in exist_entity:
+                    exist_entity.add(key)
                     prompts.append(prompt)
                     prompt_masks.append(prompt_mask)
                     prompt_tags.append(prompt_tag)
@@ -185,8 +186,9 @@ class LEXBertDataSet(Dataset):
                         tag, word)
                     if prompt is None:
                         continue
-                    if ''.join(word) not in exist_entity:
-                        exist_entity.add(''.join(word))
+                    key = hash(str(prompt_origin))
+                    if key not in exist_entity:
+                        exist_entity.add(key)
                         prompts.append(prompt)
                         prompt_masks.append(prompt_mask)
                         prompt_tags.append(prompt_tag)
