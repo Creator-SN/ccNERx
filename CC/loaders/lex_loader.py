@@ -39,6 +39,7 @@ class LXLoader(IDataLoader):
             .add_argument("task_name", str) \
             .add_argument("tag_rules", dict) \
             .add_argument("debug", bool, defaultValue=False) \
+            .add_argument("pass_none_rule", bool, defaultValue=False) \
             .add_argument("skip_single_matched_word",bool,defaultValue=False) \
             .parse(self, **args)
 
@@ -92,7 +93,8 @@ class LXLoader(IDataLoader):
         self.vocab_embedding, self.embedding_dim = cache.load("word_embedding",lambda: VocabEmbedding(self.word_vocab).build_from_file(
             self.word_embedding_file, self.max_scan_num, self.add_seq_vocab).get_embedding())
 
-        self.tag_convert: TagConvert = TagConvert(self.tag_rules)
+        self.tag_convert: TagConvert = TagConvert(
+            self.tag_rules, not_found_action="return" if self.pass_none_rule else "exception")
         self.tokenizer = BertTokenizer.from_pretrained(self.bert_vocab_file)
 
     def verify_data(self):
@@ -171,6 +173,8 @@ class LEXBertDataSet(Dataset):
                         if len(word) != 0:
                             prompt, prompt_mask, prompt_tag, prompt_origin = self.tag_convert.tag2prompt(
                                 labels, word)
+                            if prompt is None:
+                                continue
                             key = ''.join(word)
                             if key not in exists_entity:
                                 exists_entity.add(key)
@@ -185,13 +189,14 @@ class LEXBertDataSet(Dataset):
             if len(word) != 0:
                 prompt, prompt_mask, prompt_tag, prompt_origin = self.tag_convert.tag2prompt(
                     labels, word)
-                key = ''.join(word)
-                if key not in exists_entity:
-                    exists_entity.add(key)
-                    prompts.append(prompt)
-                    prompt_masks.append(prompt_mask)
-                    prompt_tags.append(prompt_tag)
-                    prompt_origins.append(prompt_origin)
+                if prompt is not None:
+                    key = ''.join(word)
+                    if key not in exists_entity:
+                        exists_entity.add(key)
+                        prompts.append(prompt)
+                        prompt_masks.append(prompt_mask)
+                        prompt_tags.append(prompt_tag)
+                        prompt_origins.append(prompt_origin)
             # resolve input
             text = ["[CLS]"] + item["text"][:self.max_seq_length-2]+["[SEP]"]
             origin_text = text[:]
@@ -210,6 +215,8 @@ class LEXBertDataSet(Dataset):
                         continue
                     prompt, prompt_mask, prompt_tag, prompt_origin = self.tag_convert.tag2prompt(
                         tag, word)
+                    if prompt is None:
+                        continue
                     key = ''.join(word)
                     if key not in exists_entity:
                         exists_entity.add(key)
