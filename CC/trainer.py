@@ -106,6 +106,16 @@ class NERTrainer(ITrainer):
             self.tag_size = self.tag_vocab.__len__()
             self.analysis = CCAnalysis(
                 self.tag_vocab.token2id, self.tag_vocab.id2token)
+        
+        if self.loader_name == 'm_labelle_loader':
+            self.vocab_embedding = result['vocab_embedding']
+            self.embedding_dim = result['embedding_dim']
+            self.label_embedding = result['label_embedding']
+            self.label_embedding_dim = result['label_embedding_dim']
+            self.tag_vocab = result['tag_vocab']
+            self.tag_size = self.tag_vocab.__len__()
+            self.analysis = CCAnalysis(
+                self.tag_vocab.token2id, self.tag_vocab.id2token)
 
         if self.output_eval is not None:
             self.eval_set = result['eval_set']
