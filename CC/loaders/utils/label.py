@@ -28,8 +28,8 @@ def get_entities(labels: List[str], text: List[str], return_dict: bool = False) 
         if label[0] in middle_set and cur_label is None:
             cur_label = "-".join(label.split("-")[1:])
             start = i
-            print(f"{'-'*10}error_entity{'-'*10}")
-            print(f"labels:{labels}\ntext:{text}")
+            # print(f"{'-'*10}error_entity{'-'*10}")
+            # print(f"labels:{labels}\ntext:{text}")
         if label[0] not in outside_set:
             word.append(ch)
     labels.pop()
