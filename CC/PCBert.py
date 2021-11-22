@@ -176,6 +176,7 @@ class BertLayer(nn.Module):
         if self.has_word_attn:
             assert input_word_mask is not None
 
+            # h_ori = torch.repeat_interleave(layer_output.unsqueeze(2), repeats=input_label_embeddings.shape[2], dim=2)
             label_feature = self.word_label_transform(torch.cat([input_word_embeddings, input_label_embeddings], dim=-1))
             label_feature = self.act(label_feature)
             label_feature = self.label_label_weight(label_feature)
