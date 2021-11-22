@@ -14,11 +14,11 @@ args = {
     'test_file': './data/weibo/test.json',
     'bert_vocab_file': './model/chinese_wwm_ext/vocab.txt',
     'tag_file': './data/weibo/pretrained_labels.txt',
+    'external_entities_file':"./temp/data.json",
     'loader_name': 'labellex_loader',
     "word_embedding_file": "./data/tencent/word_embedding.txt",
     "word_vocab_file": "./data/tencent/tencent_vocab.txt",
-    "word_vocab_file_with_tag": "./data/tencent/tencent_vocab_with_tag.json",
-    "tag_embedding_file":"data/tencent/label_embedding.txt",
+    "tag_embedding_file":"data/tencent/lebert_full_label_embedding_tx.txt",
     "default_tag": "O",
     'batch_size': 8,
     'eval_batch_size': 64,
@@ -62,7 +62,7 @@ args = {
 }
 
 
-loader = LXLoader(**args)
+loader = MLabelLLoader(**args)
 
 #%%
 old_loader = LXLoader(**args)
@@ -101,14 +101,13 @@ for i in range(len(old_loader.myData)):
 
 # %%
 choices = ("input_ids","origin_labels","input_labels","labels","matched_label_ids","matched_word_ids")
-index = 1
+index = 4
 for i in loader.myData[0:10][choices[index]].tolist():
     if index<3:
         print(loader.tokenizer.decode(i))
     elif index==3:
         print(loader.tag_vocab.id2token(i))
     elif index==4:
-        print(loader.entity_tag_vocab.idx2item)
         print(loader.entity_tag_vocab.id2token(i))
     else:
         print(loader.word_vocab.id2token(i))

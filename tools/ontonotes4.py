@@ -155,7 +155,7 @@ if __name__=="__main__":
     }
 
     rules = [Rule(eval_test_file,eval_test_action),Rule(train_file,train_action)]
-    scan("/home/yfy/repos/ccNERx/data/ontonotes-release-4.0/data/files/data/chinese",data,rules)
+    scan("/data/ontonotes-release-4.0/data/files/data/chinese",data,rules)
     # print(data)
     import sys
     with open("./local_temp_code/temp.out","w",encoding="utf-8") as sys.stdout:
