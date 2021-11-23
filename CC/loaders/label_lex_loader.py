@@ -72,7 +72,7 @@ class LabelLXLoader(IDataLoader):
         self.word_vocab = VocabTag().from_list(matched_words_with_tags,
                                                is_word=True, has_default=False, unk_num=5)
 
-        self.tag_vocab = Vocab().from_files([self.tag_file])
+        self.tag_vocab = Vocab().from_files([self.tag_file],is_word=False)
 
         self.vocab_embedding, self.embedding_dim = cache.load("word_embedding",lambda: VocabEmbedding(self.word_vocab).build_from_file(
             self.word_embedding_file, self.max_scan_num, self.add_seq_vocab).get_embedding())
