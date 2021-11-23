@@ -1,9 +1,10 @@
 import json
+import os
+from shutil import rmtree
 from typing import Any, Dict, List
 import torch
 from torch.utils.data import DataLoader, Dataset
 from transformers.utils.dummy_pt_objects import BertModel
-from CC.loaders.utils import embedding
 from CC.loaders.utils.cache_manager import FileCache
 from CC.loaders.utils.embedding import VocabEmbedding
 from CC.loaders.utils.lexicon_factory import TrieFactory
@@ -17,7 +18,8 @@ import random
 import numpy as np
 from torch import tensor
 from tqdm import tqdm
-
+import tempfile
+import pickle
 
 class FTLoaderV1(IDataLoader):
     """Fine-Tune Loader Version 1
@@ -361,10 +363,11 @@ class FTDataSetV1(Dataset):
         self.matched_word_mask = []
         self.matched_label_ids = []
         self.matched_label_mask = []
-        self.matched_label_embedding = []
+        # self.matched_label_embedding = []
+        self.matched_label_embedding_path = tempfile.mkdtemp()
         self.labels = []
 
-        for line in tqdm(reader.line_iter(),
+        for index,line in tqdm(enumerate(reader.line_iter()),
                          desc=f"load dataset from {self.file}",
                          total=line_total):
             line = line.strip()
@@ -379,7 +382,9 @@ class FTDataSetV1(Dataset):
             self.matched_word_mask.append(matched_word_mask)
             self.matched_label_ids.append(matched_label_ids)
             self.matched_label_mask.append(matched_label_mask)
-            self.matched_label_embedding.append(matched_label_embedding)
+            # self.matched_label_embedding.append(matched_label_embedding)
+            with open(os.path.join(self.matched_label_embedding_path,f"{index}.pkl"),"wb") as f:
+                pickle.dump(matched_label_embedding,f)
             self.labels.append(labels)
 
         self.size = len(self.input_token_ids)
@@ -390,7 +395,6 @@ class FTDataSetV1(Dataset):
         self.matched_word_mask = np.array(self.matched_word_mask)
         self.matched_label_ids = np.array(self.matched_label_ids)
         self.matched_label_mask = np.array(self.matched_label_mask)
-        self.matched_label_embedding = np.array(self.matched_label_embedding)
         self.labels = np.array(self.labels)
         self.indexes = [i for i in range(self.size)]
         if self.do_shuffle:
@@ -398,6 +402,14 @@ class FTDataSetV1(Dataset):
 
     def __getitem__(self, idx):
         idx = self.indexes[idx]
+        if isinstance(idx,list):
+            matched_label_embedding = []
+            for i in idx:
+                with open(os.path.join(self.matched_label_embedding_path,f"{i}.pkl"),"rb") as f:
+                    matched_label_embedding.append(pickle.load(f))
+        else:
+            with open(os.path.join(self.matched_label_embedding_path,f"{idx}.pkl"),"rb") as f:
+                    matched_label_embedding = pickle.load(f)
         return {
             'input_ids': tensor(self.input_token_ids[idx]),
             'attention_mask': tensor(self.attention_mask[idx]),
@@ -406,9 +418,12 @@ class FTDataSetV1(Dataset):
             'matched_word_mask': tensor(self.matched_word_mask[idx]),
             'matched_label_ids': tensor(self.matched_label_ids[idx]),
             'matched_label_mask': tensor(self.matched_label_mask[idx]),
-            'matched_label_embedding': tensor(self.matched_label_embedding[idx]),
+            'matched_label_embedding': tensor(matched_label_embedding),
             'labels': tensor(self.labels[idx])
         }
 
     def __len__(self):
         return self.size
+
+    def __del__(self):
+        rmtree(self.matched_label_embedding_path)
