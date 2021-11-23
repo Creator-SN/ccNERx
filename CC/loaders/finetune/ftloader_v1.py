@@ -402,14 +402,14 @@ class FTDataSetV1(Dataset):
 
     def __getitem__(self, idx):
         idx = self.indexes[idx]
+        matched_label_embedding = {}
         if isinstance(idx,list):
-            matched_label_embedding = []
             for i in idx:
                 with open(os.path.join(self.matched_label_embedding_path,f"{i}.pkl"),"rb") as f:
-                    matched_label_embedding.append(pickle.load(f))
+                    matched_label_embedding[i] = pickle.load(f)
         else:
             with open(os.path.join(self.matched_label_embedding_path,f"{idx}.pkl"),"rb") as f:
-                    matched_label_embedding = pickle.load(f)
+                    matched_label_embedding[idx] = pickle.load(f)
         return {
             'input_ids': tensor(self.input_token_ids[idx]),
             'attention_mask': tensor(self.attention_mask[idx]),
@@ -418,7 +418,7 @@ class FTDataSetV1(Dataset):
             'matched_word_mask': tensor(self.matched_word_mask[idx]),
             'matched_label_ids': tensor(self.matched_label_ids[idx]),
             'matched_label_mask': tensor(self.matched_label_mask[idx]),
-            'matched_label_embedding': tensor(matched_label_embedding),
+            'matched_label_embedding': tensor(matched_label_embedding[idx]),
             'labels': tensor(self.labels[idx])
         }
 
