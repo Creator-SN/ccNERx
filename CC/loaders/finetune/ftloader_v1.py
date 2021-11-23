@@ -21,6 +21,7 @@ from tqdm import tqdm
 import tempfile
 import pickle
 
+
 class FTLoaderV1(IDataLoader):
     """Fine-Tune Loader Version 1
     feature:
@@ -105,28 +106,35 @@ class FTLoaderV1(IDataLoader):
             [self.tag_embedding_file], is_word=False, skip=1)
 
         # setup matched_word sentence embedding
-        self.word_label_embedding = {}
-        self.word_label_embedding_dim = 200
-        for word, idx in tqdm(self.word_vocab.item2idx.items(),
-                              desc="generate label embedding"):
-            word_key = str(list(word))
-            if word_key in self.external_entities["entities"]:
-                self.word_label_embedding[idx] = {}
-                for label, sentences in self.external_entities["entities"][
-                        word_key]["labels"].items():
-                    sentence = sentences[0]
-                    encoding = self.tokenizer.encode_plus(
-                        sentence["text"][:(
-                            509 - len(f"{word}是一个{self.tag_rules[label]}"))],
-                        f"{word}是一个{self.tag_rules[label]}")
-                    with torch.no_grad():
-                        it = dict((k, torch.tensor(v).unsqueeze(0))
-                                  for k, v in encoding.items())
-                        output = self.encoder_model(**it)
-                        embedding = output.last_hidden_state[0][0]
-                        self.word_label_embedding_dim = len(embedding)
-                    self.word_label_embedding[idx][
-                        self.entity_tag_vocab.token2id(label)] = embedding.tolist()
+        def label_load():
+            word_label_embedding = {}
+            word_label_embedding_dim = 200
+            for word, idx in tqdm(self.word_vocab.item2idx.items(),
+                                  desc="generate label embedding"):
+                word_key = str(list(word))
+                if word_key in self.external_entities["entities"]:
+                    word_label_embedding[idx] = {}
+                    for label, sentences in self.external_entities["entities"][
+                            word_key]["labels"].items():
+                        sentence = sentences[0]
+                        encoding = self.tokenizer.encode_plus(
+                            sentence["text"][:(
+                                509 -
+                                len(f"{word}是一个{self.tag_rules[label]}"))],
+                            f"{word}是一个{self.tag_rules[label]}")
+                        with torch.no_grad():
+                            it = dict((k, torch.tensor(v).unsqueeze(0))
+                                      for k, v in encoding.items())
+                            output = self.encoder_model(**it)
+                            embedding = output.last_hidden_state[0][0]
+                            word_label_embedding_dim = len(embedding)
+                        word_label_embedding[idx][
+                            self.entity_tag_vocab.token2id(
+                                label)] = embedding.tolist()
+            return word_label_embedding, word_label_embedding_dim
+
+        self.word_label_embedding, self.word_label_embedding_dim = cache.load(
+            "label_embedding_entities", lambda: label_load())
 
         self.tag_vocab: Vocab = Vocab().from_files([self.tag_file],
                                                    is_word=False)
@@ -141,18 +149,19 @@ class FTLoaderV1(IDataLoader):
                      batch_size: int,
                      eval_batch_size: int = None,
                      test_batch_size: int = None):
+        cache = self.cache.group(f"{self.max_scan_num}-process")
         if self.use_test:
-            self.myData_test = FTDataSetV1(
+            self.myData_test = cache.load("testdata",lambda: FTDataSetV1(
                 self.data_files[2], self.tokenizer, self.lexicon_tree,
                 self.word_vocab, self.tag_vocab, self.max_word_num,
                 self.max_seq_length, self.default_tag, self.entity_tag_vocab,
                 self.external_entities, self.max_label_num,
                 self.word_label_embedding, self.word_label_embedding_dim,
-                self.do_predict)
+                self.do_predict))
             self.dataiter_test = DataLoader(self.myData_test,
                                             batch_size=test_batch_size)
-        else:
-            self.myData = FTDataSetV1(self.data_files[0],
+        else:         
+            self.myData = cache.load("mydata",lambda: FTDataSetV1(self.data_files[0],
                                       self.tokenizer,
                                       self.lexicon_tree,
                                       self.word_vocab,
@@ -165,17 +174,17 @@ class FTLoaderV1(IDataLoader):
                                       self.max_label_num,
                                       self.word_label_embedding,
                                       self.word_label_embedding_dim,
-                                      do_shuffle=self.do_shuffle)
+                                      do_shuffle=self.do_shuffle))
 
             self.dataiter = DataLoader(self.myData, batch_size=batch_size)
             if self.output_eval:
-                self.myData_eval = FTDataSetV1(
+                self.myData_eval = cache.load("evaldata",lambda: FTDataSetV1(
                     self.data_files[1], self.tokenizer, self.lexicon_tree,
                     self.word_vocab, self.tag_vocab, self.max_word_num,
                     self.max_seq_length, self.default_tag,
                     self.entity_tag_vocab, self.external_entities,
                     self.max_label_num, self.word_label_embedding,
-                    self.word_label_embedding_dim)
+                    self.word_label_embedding_dim))
                 self.dataiter_eval = DataLoader(self.myData_eval,
                                                 batch_size=eval_batch_size)
 
@@ -305,7 +314,7 @@ class FTDataSetV1(Dataset):
             matched_word_mask[i][:len(word_ids)] = 1
             ids = []
             masks = [0] * self.max_label_num
-            for word_index,word in enumerate(words):
+            for word_index, word in enumerate(words):
                 key = str(list(word))
                 word_id = self.word_vocab.token2id(word)
                 if key in self.external_entities["entities"]:
@@ -314,8 +323,7 @@ class FTDataSetV1(Dataset):
                     tags = self.entity_tag_vocab.token2id(tags)
                     masks[:len(tags)] = [1] * len(tags)
                     matched_label_embedding[i][word_index][:len(tags)] = [
-                        self.word_label_embedding[word_id][tag]
-                        for tag in tags
+                        self.word_label_embedding[word_id][tag] for tag in tags
                     ]
                     if len(tags) < self.max_label_num:
                         tags += [
@@ -367,9 +375,9 @@ class FTDataSetV1(Dataset):
         self.matched_label_embedding_path = tempfile.mkdtemp()
         self.labels = []
 
-        for index,line in tqdm(enumerate(reader.line_iter()),
-                         desc=f"load dataset from {self.file}",
-                         total=line_total):
+        for index, line in tqdm(enumerate(reader.line_iter()),
+                                desc=f"load dataset from {self.file}",
+                                total=line_total):
             line = line.strip()
             data: Dict[str, List[Any]] = json.loads(line)
             input_token_ids, segment_ids, attention_mask, matched_word_ids, matched_word_mask, matched_label_ids, matched_label_mask, matched_label_embedding, labels = self.convert_embedding(
@@ -383,8 +391,10 @@ class FTDataSetV1(Dataset):
             self.matched_label_ids.append(matched_label_ids)
             self.matched_label_mask.append(matched_label_mask)
             # self.matched_label_embedding.append(matched_label_embedding)
-            with open(os.path.join(self.matched_label_embedding_path,f"{index}.pkl"),"wb") as f:
-                pickle.dump(matched_label_embedding,f)
+            with open(
+                    os.path.join(self.matched_label_embedding_path,
+                                 f"{index}.pkl"), "wb") as f:
+                pickle.dump(matched_label_embedding, f)
             self.labels.append(labels)
 
         self.size = len(self.input_token_ids)
@@ -402,14 +412,19 @@ class FTDataSetV1(Dataset):
 
     def __getitem__(self, idx):
         idx = self.indexes[idx]
-        matched_label_embedding = {}
-        if isinstance(idx,list):
+
+        matched_label_embedding = []
+        if isinstance(idx, list):
             for i in idx:
-                with open(os.path.join(self.matched_label_embedding_path,f"{i}.pkl"),"rb") as f:
-                    matched_label_embedding[i] = pickle.load(f)
+                with open(
+                        os.path.join(self.matched_label_embedding_path,
+                                     f"{i}.pkl"), "rb") as f:
+                    matched_label_embedding.append(pickle.load(f))
         else:
-            with open(os.path.join(self.matched_label_embedding_path,f"{idx}.pkl"),"rb") as f:
-                    matched_label_embedding[idx] = pickle.load(f)
+            with open(
+                    os.path.join(self.matched_label_embedding_path,
+                                 f"{idx}.pkl"), "rb") as f:
+                matched_label_embedding = pickle.load(f)
         return {
             'input_ids': tensor(self.input_token_ids[idx]),
             'attention_mask': tensor(self.attention_mask[idx]),
@@ -418,7 +433,7 @@ class FTDataSetV1(Dataset):
             'matched_word_mask': tensor(self.matched_word_mask[idx]),
             'matched_label_ids': tensor(self.matched_label_ids[idx]),
             'matched_label_mask': tensor(self.matched_label_mask[idx]),
-            'matched_label_embedding': tensor(matched_label_embedding[idx]),
+            'matched_label_embedding': tensor(matched_label_embedding),
             'labels': tensor(self.labels[idx])
         }
 
