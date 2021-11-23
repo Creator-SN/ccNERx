@@ -77,7 +77,6 @@ class FTLoaderV1(IDataLoader):
 
         cache = self.cache.group(self.max_scan_num)
 
-        print(self.bert_pretrain_path)
         self.tokenizer = BertTokenizer.from_pretrained(self.bert_pretrain_path)
         self.encoder_model = BertModel.from_pretrained(self.bert_pretrain_path)
         self.encoder_model.eval()
@@ -103,15 +102,20 @@ class FTLoaderV1(IDataLoader):
             [self.tag_embedding_file], is_word=False, skip=1)
 
         # setup matched_word sentence embedding
-        self.word_label_embedding = {}
-        self.word_label_embedding_dim = 200
-        for word, idx in tqdm(self.word_vocab.item2idx.items(),
+        self.word_label_embedding = []
+        self.word_label_embedding_dim = 768
+        for word in tqdm(self.word_vocab.idx2item,
                               desc="generate label embedding"):
+            idx = self.word_vocab.token2id(word)
             word_key = str(list(word))
+            self.word_label_embedding.append([[0.0]*self.word_label_embedding_dim for _ in range(self.max_label_num)])
             if word_key in self.external_entities["entities"]:
-                self.word_label_embedding[idx] = {}
+                label_index = 0
                 for label, sentences in self.external_entities["entities"][
                         word_key]["labels"].items():
+                    label_index+=1
+                    if label_index>self.max_label_num:
+                        break
                     sentence = sentences[0]
                     encoding = self.tokenizer.encode_plus(
                         sentence["text"][:(509-len(f"{word}是一个{self.tag_rules[label]}"))], f"{word}是一个{self.tag_rules[label]}")
@@ -121,8 +125,8 @@ class FTLoaderV1(IDataLoader):
                         output = self.encoder_model(**it)
                         embedding = output.last_hidden_state[0][0]
                         self.word_label_embedding_dim = len(embedding)
-                    self.word_label_embedding[idx][
-                        self.entity_tag_vocab.token2id(label)] = embedding
+                    self.word_label_embedding[idx][label_index-1] = list(embedding)
+        self.word_label_embedding = np.asarray(self.word_label_embedding)
 
         self.tag_vocab: Vocab = Vocab().from_files([self.tag_file],
                                                    is_word=False)
