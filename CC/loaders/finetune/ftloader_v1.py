@@ -440,5 +440,5 @@ class FTDataSetV1(Dataset):
     def __len__(self):
         return self.size
 
-    def __del__(self):
-        rmtree(self.matched_label_embedding_path)
+    # def __del__(self):
+        # rmtree(self.matched_label_embedding_path)
