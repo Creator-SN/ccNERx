@@ -433,7 +433,7 @@ class FTDataSetV1(Dataset):
             'matched_word_mask': tensor(self.matched_word_mask[idx]),
             'matched_label_ids': tensor(self.matched_label_ids[idx]),
             'matched_label_mask': tensor(self.matched_label_mask[idx]),
-            'matched_label_embedding': tensor(matched_label_embedding),
+            'matched_label_embedding': tensor(matched_label_embedding).float(),
             'labels': tensor(self.labels[idx])
         }
 
