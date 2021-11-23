@@ -114,7 +114,7 @@ class BertLayer(nn.Module):
             
             self.word_label_transform = nn.Linear(config.word_embed_dim + config.label_embed_dim, config.word_embed_dim)
             self.label_label_weight = nn.Linear(config.word_embed_dim, config.word_embed_dim)
-            attn_Label_W = torch.zeros(config.word_embed_dim, config.word_embed_dim)
+            attn_Label_W = torch.zeros(config.label_embed_dim, config.label_embed_dim)
             self.attn_Label_W = nn.Parameter(attn_Label_W)
             self.attn_Label_W.data.normal_(mean=0.0, std=config.initializer_range)
 
@@ -128,6 +128,7 @@ class BertLayer(nn.Module):
             input_word_embeddings=None,
             input_label_embeddings=None,
             input_word_mask=None,
+            input_label_mask=None,
             head_mask=None,
             encoder_hidden_states=None,
             encoder_attention_mask=None,
@@ -171,7 +172,8 @@ class BertLayer(nn.Module):
             attention_output = cross_attention_outputs[0]
             # add cross attentions if we output attention weights
             outputs = outputs + cross_attention_outputs[1:]
-
+        
+        # [Batch_size, seq_len, hidden_size]
         layer_output = apply_chunking_to_forward(
             self.feed_forward_chunk, self.chunk_size_feed_forward, self.seq_len_dim, attention_output
         )
@@ -179,12 +181,14 @@ class BertLayer(nn.Module):
         if self.has_word_attn:
             assert input_word_mask is not None
 
-            # h_ori = torch.repeat_interleave(layer_output.unsqueeze(2), repeats=input_label_embeddings.shape[2], dim=2)
+            h_ori = torch.repeat_interleave(layer_output.unsqueeze(2), repeats=input_word_embeddings.shape[2], dim=2) # [Batch_size, Seq_len, Word_size, hidden_size]
 
-            # input_word_embeddings [Batch_size, Seq_len, Word_size, Label_size, Dim]
-            label_attn_score = torch.matmul(input_word_embeddings.unsqueeze(3), self.attn_Label_W) # [Batch_size, Seq_len, Word_size, 1, Dim]
+            # input_word_embeddings [Batch_size, Seq_len, Word_size, word_embed_dim]
+            # input_label_embeddings [Batch_size, Seq_len, Word_size, Label_size, label_embed_dim]
+            label_attn_score = torch.matmul(h_ori.unsqueeze(3), self.attn_Label_W) # [Batch_size, Seq_len, Word_size, 1, label_embed_dim]
             label_attn_score = torch.matmul(label_attn_score, torch.transpose(input_label_embeddings, 3, 4)) # [Batch_size, Seq_len, Word_size, 1, Label_size]
             label_attn_score = label_attn_score.squeeze() # [Batch_size, Seq_len, Word_size, Label_size]
+            label_attn_score = label_attn_score + (1 - input_label_mask.float()) * (-10000.0)
             label_attn_score = torch.nn.Softmax(dim=-1)(label_attn_score)
             label_attn_score = label_attn_score.unsqueeze(-1) # [Batch_size, Seq_len, Word_size, Label_size, 1]
             
@@ -248,6 +252,7 @@ class BertEncoder(nn.Module):
             input_word_embeddings=None,
             input_label_embeddings=None,
             input_word_mask=None,
+            input_label_mask=None,
             head_mask=None,
             encoder_hidden_states=None,
             encoder_attention_mask=None,
@@ -280,6 +285,7 @@ class BertEncoder(nn.Module):
                     input_word_embeddings,
                     input_label_embeddings,
                     input_word_mask,
+                    input_label_mask,
                     layer_head_mask,
                     encoder_hidden_states,
                     encoder_attention_mask,
@@ -291,6 +297,7 @@ class BertEncoder(nn.Module):
                     input_word_embeddings,
                     input_label_embeddings,
                     input_word_mask,
+                    input_label_mask,
                     layer_head_mask,
                     encoder_hidden_states,
                     encoder_attention_mask,
@@ -387,6 +394,7 @@ class PCBertModel(BertPreTrainedModel):
         matched_word_embeddings=None,
         matched_label_embeddings=None,
         matched_word_mask=None,
+        matched_label_mask=None,
         position_ids=None,
         head_mask=None,
         inputs_embeds=None,
@@ -482,6 +490,7 @@ class PCBertModel(BertPreTrainedModel):
             input_word_embeddings=matched_word_embeddings,
             input_label_embeddings=matched_label_embeddings,
             input_word_mask=matched_word_mask,
+            input_label_mask=matched_label_mask,
             head_mask=head_mask,
             encoder_hidden_states=encoder_hidden_states,
             encoder_attention_mask=encoder_extended_attention_mask,
