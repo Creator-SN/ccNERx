@@ -75,6 +75,7 @@ args = {
 
 loader = FTLoaderV1(**args)
 
+
 #%%
 old_loader = LXLoader(**args)
 
@@ -111,7 +112,7 @@ for i in range(len(old_loader.myData)):
 
 
 # %%
-loader.myData[0]["matched_label_embedding"]
+loader.myData[0:100]["matched_label_embedding"]
 #%%
 choices = ("input_ids","origin_labels","input_labels","labels","matched_label_ids","matched_word_ids")
 index = 4
@@ -125,6 +126,20 @@ for i in loader.myData[0:1][choices[index]].tolist():
     else:
         print(loader.word_vocab.id2token(i))
 
+#%%
+import os
+files = os.listdir("/tmp/tmp0pu1kou7")
+files = sorted(files)
+import pickle
+for file in files:
+    with open(os.path.join("/tmp/tmp0pu1kou7",file),"rb") as f:
+        v = pickle.load(f)
+        value = v.max()
+        if (value>0):
+            for i in v:
+                if i.max()>0:
+                    print(i)
+            raise
 
 
 
