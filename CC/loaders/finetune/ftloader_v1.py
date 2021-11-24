@@ -297,7 +297,7 @@ class FTDataSetV1(Dataset):
         matched_label_ids = torch.zeros(
             (self.max_seq_length, self.max_word_num, self.max_label_num),
             dtype=torch.int)
-        matched_label_embedding = torch.zeros(
+        matched_label_embeddings = torch.zeros(
             (self.max_seq_length, self.max_word_num, self.max_label_num,
              self.word_label_embedding_dim),
             dtype=torch.float)
@@ -320,7 +320,7 @@ class FTDataSetV1(Dataset):
                                 ["labels"].keys())[:self.max_label_num]
                     tags = self.entity_tag_vocab.token2id(tags)
                     masks[:len(tags)] = [1] * len(tags)
-                    matched_label_embedding[i][word_index][:len(tags)] = tensor([
+                    matched_label_embeddings[i][word_index][:len(tags)] = tensor([
                         self.word_label_embedding[word_id][tag] for tag in tags
                     ]).float()
                     if len(tags) < self.max_label_num:
@@ -345,11 +345,11 @@ class FTDataSetV1(Dataset):
                 "matched_word_mask": matched_word_mask,
                 "matched_label_ids": matched_label_ids,
                 "matched_label_mask": matched_label_mask,
-                "matched_label_embedding": matched_label_embedding,
+                "matched_label_embeddings": matched_label_embeddings,
                 "labels": labels,
             }
 
-        return input_token_ids, segment_ids, attention_mask, matched_word_ids, matched_word_mask, matched_label_ids, matched_label_mask, matched_label_embedding, labels
+        return input_token_ids, segment_ids, attention_mask, matched_word_ids, matched_word_mask, matched_label_ids, matched_label_mask, matched_label_embeddings, labels
 
     def init_dataset(self):
         reader = FileReader(self.file)
@@ -361,8 +361,8 @@ class FTDataSetV1(Dataset):
         self.matched_word_mask = []
         self.matched_label_ids = []
         self.matched_label_mask = []
-        # self.matched_label_embedding = []
-        self.matched_label_embedding_path = tempfile.mkdtemp()
+        # self.matched_label_embeddings = []
+        self.matched_label_embeddings_path = tempfile.mkdtemp()
         self.labels = []
 
         for index, line in tqdm(enumerate(reader.line_iter()),
@@ -370,7 +370,7 @@ class FTDataSetV1(Dataset):
                                 total=line_total):
             line = line.strip()
             data: Dict[str, List[Any]] = json.loads(line)
-            input_token_ids, segment_ids, attention_mask, matched_word_ids, matched_word_mask, matched_label_ids, matched_label_mask, matched_label_embedding, labels = self.convert_embedding(
+            input_token_ids, segment_ids, attention_mask, matched_word_ids, matched_word_mask, matched_label_ids, matched_label_mask, matched_label_embeddings, labels = self.convert_embedding(
                 data)
 
             self.input_token_ids.append(input_token_ids)
@@ -381,9 +381,9 @@ class FTDataSetV1(Dataset):
             self.matched_label_ids.append(matched_label_ids)
             self.matched_label_mask.append(matched_label_mask)
             with open(
-                    os.path.join(self.matched_label_embedding_path,
+                    os.path.join(self.matched_label_embeddings_path,
                                  f"{index}.pkl"), "wb") as f:
-                pickle.dump(matched_label_embedding, f)
+                pickle.dump(matched_label_embeddings, f)
             self.labels.append(labels)
 
         self.size = len(self.input_token_ids)
@@ -393,14 +393,14 @@ class FTDataSetV1(Dataset):
 
     def __getitem__(self, idx):
         idx = self.indexes[idx]
-        matched_label_embedding = []
+        matched_label_embeddings = []
         if isinstance(idx, list):
             for i in idx:
                 with open(
-                        os.path.join(self.matched_label_embedding_path,
+                        os.path.join(self.matched_label_embeddings_path,
                                      f"{i}.pkl"), "rb") as f:
-                    matched_label_embedding.append(pickle.load(f))
-            matched_label_embedding = torch.stack(matched_label_embedding)
+                    matched_label_embeddings.append(pickle.load(f))
+            matched_label_embeddings = torch.stack(matched_label_embeddings)
             return {
                 'input_ids': torch.stack([self.input_token_ids[i] for i in idx]),
                 'attention_mask': torch.stack([self.attention_mask[i] for i in idx]),
@@ -409,14 +409,14 @@ class FTDataSetV1(Dataset):
                 'matched_word_mask': torch.stack([self.matched_word_mask[i] for i in idx]),
                 'matched_label_ids': torch.stack([self.matched_label_ids[i] for i in idx]),
                 'matched_label_mask': torch.stack([self.matched_label_mask[i] for i in idx]),
-                'matched_label_embedding': matched_label_embedding,
+                'matched_label_embeddings': matched_label_embeddings,
                 'labels': torch.stack([self.labels[i] for i in idx])
             }
         else:
             with open(
-                    os.path.join(self.matched_label_embedding_path,
+                    os.path.join(self.matched_label_embeddings_path,
                                  f"{idx}.pkl"), "rb") as f:
-                matched_label_embedding = pickle.load(f)
+                matched_label_embeddings = pickle.load(f)
             return {
                 'input_ids': self.input_token_ids[idx],
                 'attention_mask': self.attention_mask[idx],
@@ -425,7 +425,7 @@ class FTDataSetV1(Dataset):
                 'matched_word_mask': self.matched_word_mask[idx],
                 'matched_label_ids': self.matched_label_ids[idx],
                 'matched_label_mask': self.matched_label_mask[idx],
-                'matched_label_embedding': matched_label_embedding,
+                'matched_label_embeddings': matched_label_embeddings,
                 'labels': self.labels[idx]
             }
 
