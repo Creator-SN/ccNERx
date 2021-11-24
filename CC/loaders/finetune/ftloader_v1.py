@@ -266,8 +266,7 @@ class FTDataSetV1(Dataset):
 
     def convert_embedding(self,
                           obj,
-                          return_dict: bool = False,
-                          to_tensor: bool = False):
+                          return_dict: bool = False):
         if "text" not in obj:
             raise ValueError("obj required attribute: text")
         text = ["[CLS]"] + obj["text"][:self.max_seq_length - 2] + ["[SEP]"]
@@ -282,35 +281,34 @@ class FTDataSetV1(Dataset):
         token_ids = self.tokenizer.convert_tokens_to_ids(text)
         label_ids = self.label_vocab.token2id(label)
 
-        labels = np.zeros(self.max_seq_length, dtype=np.int)
-        labels[:len(label_ids)] = label_ids[:self.max_seq_length]
+        labels = torch.zeros(self.max_seq_length, dtype=torch.int)
+        labels[:len(label_ids)] = tensor(label_ids[:self.max_seq_length]).int()
         # init input
-        input_token_ids = np.zeros(self.max_seq_length, dtype=np.int)
-        input_token_ids[:len(token_ids)] = token_ids[:self.max_seq_length]
-        segment_ids = np.ones(self.max_seq_length, dtype=np.int)
+        input_token_ids = torch.zeros(self.max_seq_length, dtype=torch.int)
+        input_token_ids[:len(token_ids)] = tensor(token_ids[:self.max_seq_length]).int()
+        segment_ids = torch.ones(self.max_seq_length, dtype=torch.int)
         segment_ids[:len(token_ids)] = 0
-        attention_mask = np.zeros(self.max_seq_length, dtype=np.int)
+        attention_mask = torch.zeros(self.max_seq_length, dtype=torch.int)
         attention_mask[:len(token_ids)] = 1
-        matched_word_ids = np.zeros((self.max_seq_length, self.max_word_num),
-                                    dtype=np.int)
-        matched_word_mask = np.zeros((self.max_seq_length, self.max_word_num),
-                                     dtype=np.int)
-        matched_label_ids = np.zeros(
+        matched_word_ids = torch.zeros((self.max_seq_length, self.max_word_num),
+                                    dtype=torch.int)
+        matched_word_mask = torch.zeros((self.max_seq_length, self.max_word_num),
+                                     dtype=torch.int)
+        matched_label_ids = torch.zeros(
             (self.max_seq_length, self.max_word_num, self.max_label_num),
-            dtype=np.int)
-        matched_label_embedding = np.zeros(
+            dtype=torch.int)
+        matched_label_embedding = torch.zeros(
             (self.max_seq_length, self.max_word_num, self.max_label_num,
              self.word_label_embedding_dim),
-            dtype=np.float)
-        matched_label_mask = np.zeros(
-            (self.max_seq_length, self.max_word_num, self.max_label_num),
-            dtype=np.int)
+            dtype=torch.float)
+        matched_label_mask = torch.zeros(
+            (self.max_seq_length, self.max_word_num, self.max_label_num),dtype=torch.float)
         # get matched word
         matched_words = self.lexicon_tree.getAllMatchedWordList(
             text, self.max_word_num)
         for i, words in enumerate(matched_words):
             word_ids = self.word_vocab.token2id(words)
-            matched_word_ids[i][:len(word_ids)] = word_ids
+            matched_word_ids[i][:len(word_ids)] = tensor(word_ids).int()
             matched_word_mask[i][:len(word_ids)] = 1
             ids = []
             masks = [0] * self.max_label_num
@@ -322,9 +320,9 @@ class FTDataSetV1(Dataset):
                                 ["labels"].keys())[:self.max_label_num]
                     tags = self.entity_tag_vocab.token2id(tags)
                     masks[:len(tags)] = [1] * len(tags)
-                    matched_label_embedding[i][word_index][:len(tags)] = [
+                    matched_label_embedding[i][word_index][:len(tags)] = tensor([
                         self.word_label_embedding[word_id][tag] for tag in tags
-                    ]
+                    ]).float()
                     if len(tags) < self.max_label_num:
                         tags += [
                             self.entity_tag_vocab.token2id(self.default_tag)
@@ -335,17 +333,9 @@ class FTDataSetV1(Dataset):
                         [self.entity_tag_vocab.token2id(self.default_tag)] *
                         self.max_label_num)
             if len(words) > 0:
-                matched_label_ids[i][:len(ids)] = ids
-                matched_label_mask[i][:len(masks)] = masks
+                matched_label_ids[i][:len(ids)] = tensor(ids).int()
+                matched_label_mask[i][:len(masks)] = tensor(masks).int()
 
-        if to_tensor:
-            input_token_ids = tensor(input_token_ids)
-            segment_ids = tensor(segment_ids)
-            attention_mask = tensor(segment_ids)
-            matched_word_ids = tensor(matched_word_ids)
-            matched_word_mask = tensor(matched_word_mask)
-            matched_label_embedding = tensor(matched_label_embedding)
-            labels = tensor(labels)
         if return_dict:
             return {
                 "input_ids": input_token_ids,
@@ -390,7 +380,6 @@ class FTDataSetV1(Dataset):
             self.matched_word_mask.append(matched_word_mask)
             self.matched_label_ids.append(matched_label_ids)
             self.matched_label_mask.append(matched_label_mask)
-            # self.matched_label_embedding.append(matched_label_embedding)
             with open(
                     os.path.join(self.matched_label_embedding_path,
                                  f"{index}.pkl"), "wb") as f:
@@ -398,21 +387,12 @@ class FTDataSetV1(Dataset):
             self.labels.append(labels)
 
         self.size = len(self.input_token_ids)
-        self.input_token_ids = np.array(self.input_token_ids)
-        self.segment_ids = np.array(self.segment_ids)
-        self.attention_mask = np.array(self.attention_mask)
-        self.matched_word_ids = np.array(self.matched_word_ids)
-        self.matched_word_mask = np.array(self.matched_word_mask)
-        self.matched_label_ids = np.array(self.matched_label_ids)
-        self.matched_label_mask = np.array(self.matched_label_mask)
-        self.labels = np.array(self.labels)
         self.indexes = [i for i in range(self.size)]
         if self.do_shuffle:
             random.shuffle(self.indexes)
 
     def __getitem__(self, idx):
         idx = self.indexes[idx]
-
         matched_label_embedding = []
         if isinstance(idx, list):
             for i in idx:
@@ -420,25 +400,34 @@ class FTDataSetV1(Dataset):
                         os.path.join(self.matched_label_embedding_path,
                                      f"{i}.pkl"), "rb") as f:
                     matched_label_embedding.append(pickle.load(f))
+            matched_label_embedding = torch.stack(matched_label_embedding)
+            return {
+                'input_ids': torch.stack([self.input_token_ids[i] for i in idx]),
+                'attention_mask': torch.stack([self.attention_mask[i] for i in idx]),
+                'token_type_ids': torch.stack([self.segment_ids[i] for i in idx]),
+                'matched_word_ids': torch.stack([self.matched_word_ids[i] for i in idx]),
+                'matched_word_mask': torch.stack([self.matched_word_mask[i] for i in idx]),
+                'matched_label_ids': torch.stack([self.matched_label_ids[i] for i in idx]),
+                'matched_label_mask': torch.stack([self.matched_label_mask[i] for i in idx]),
+                'matched_label_embedding': matched_label_embedding,
+                'labels': torch.stack([self.labels[i] for i in idx])
+            }
         else:
             with open(
                     os.path.join(self.matched_label_embedding_path,
                                  f"{idx}.pkl"), "rb") as f:
                 matched_label_embedding = pickle.load(f)
-        return {
-            'input_ids': tensor(self.input_token_ids[idx]),
-            'attention_mask': tensor(self.attention_mask[idx]),
-            'token_type_ids': tensor(self.segment_ids[idx]),
-            'matched_word_ids': tensor(self.matched_word_ids[idx]),
-            'matched_word_mask': tensor(self.matched_word_mask[idx]),
-            'matched_label_ids': tensor(self.matched_label_ids[idx]),
-            'matched_label_mask': tensor(self.matched_label_mask[idx]),
-            'matched_label_embedding': tensor(matched_label_embedding),
-            'labels': tensor(self.labels[idx])
-        }
+            return {
+                'input_ids': self.input_token_ids[idx],
+                'attention_mask': self.attention_mask[idx],
+                'token_type_ids': self.segment_ids[idx],
+                'matched_word_ids': self.matched_word_ids[idx],
+                'matched_word_mask': self.matched_word_mask[idx],
+                'matched_label_ids': self.matched_label_ids[idx],
+                'matched_label_mask': self.matched_label_mask[idx],
+                'matched_label_embedding': matched_label_embedding,
+                'labels': self.labels[idx]
+            }
 
     def __len__(self):
         return self.size
-
-    # def __del__(self):
-        # rmtree(self.matched_label_embedding_path)
