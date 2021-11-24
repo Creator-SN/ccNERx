@@ -82,7 +82,7 @@ class FTLoaderV1(IDataLoader):
         cache = self.cache.group(self.max_scan_num)
 
         self.tokenizer = BertTokenizer.from_pretrained(self.bert_pretrain_path)
-        self.encoder_model = BertModel.from_pretrained(self.bert_pretrain_path)
+        self.encoder_model = BertModel.from_pretrained(self.bert_pretrain_path,output_hidden_states=True)
         self.encoder_model.eval()
 
         with open(self.external_entities_file, "r", encoding="utf-8") as f:
@@ -126,7 +126,7 @@ class FTLoaderV1(IDataLoader):
                             it = dict((k, torch.tensor(v).unsqueeze(0))
                                       for k, v in encoding.items())
                             output = self.encoder_model(**it)
-                            embedding = output.last_hidden_state[0][0]
+                            embedding = output.hidden_states[-3][0][0]
                             word_label_embedding_dim = len(embedding)
                         word_label_embedding[idx][
                             self.entity_tag_vocab.token2id(
