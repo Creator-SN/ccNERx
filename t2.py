@@ -73,7 +73,7 @@ args = {
 }
 
 
-loader = FTLoaderV1(**args)
+loader = FTLoaderV2(**args)
 
 
 #%%
@@ -112,7 +112,13 @@ for i in range(len(old_loader.myData)):
 
 
 # %%
-loader.myData[0:10000]["matched_label_embeddings"]
+for index in range(10):
+    data =[]
+    for i,j in enumerate(loader.myData[index]["prompt_attention_mask"].tolist()):
+        if j==1:
+            data.append(loader.myData[index]["prompt_input_ids"][i])
+    print(loader.tokenizer.decode(data))
+    print(loader.tokenizer.decode(loader.myData[index]["prompt_input_ids"]))
 
 #%%
 choices = ("input_ids","origin_labels","input_labels","labels","matched_label_ids","matched_word_ids")
