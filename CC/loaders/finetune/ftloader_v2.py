@@ -151,9 +151,7 @@ class FTLoaderV2(IDataLoader):
                 'test_set': self.myData_test,
                 'test_iter': self.dataiter_test,
                 'vocab_embedding': self.vocab_embedding,
-                'label_embedding': self.word_label_embedding,
                 'embedding_dim': self.embedding_dim,
-                'label_embedding_dim': self.word_label_embedding_dim,
                 'word_vocab': self.word_vocab,
                 'tag_vocab': self.tag_vocab
             }
@@ -164,9 +162,7 @@ class FTLoaderV2(IDataLoader):
                 'eval_set': self.myData_eval,
                 'eval_iter': self.dataiter_eval,
                 'vocab_embedding': self.vocab_embedding,
-                'label_embedding': self.word_label_embedding,
                 'embedding_dim': self.embedding_dim,
-                'label_embedding_dim': self.word_label_embedding_dim,
                 'word_vocab': self.word_vocab,
                 'tag_vocab': self.tag_vocab
             }
@@ -175,9 +171,7 @@ class FTLoaderV2(IDataLoader):
                 'train_set': self.myData,
                 'train_iter': self.dataiter,
                 'vocab_embedding': self.vocab_embedding,
-                'label_embedding': self.word_label_embedding,
                 'embedding_dim': self.embedding_dim,
-                'label_embedding_dim': self.word_label_embedding_dim,
                 'word_vocab': self.word_vocab,
                 'tag_vocab': self.tag_vocab
             }
@@ -218,9 +212,9 @@ class FTDataSetV2(Dataset):
     def convert_prompt(self, obj):
         text, labels = obj["text"], obj["label"]
         entities = get_entities(labels, text)
-        for _, _, label, word in entities:
+        for start, end, label, word in entities:
 
-            def convert(label, word, positive=True):
+            def convert(start, end, label, word, positive=True):
                 # if not positive:
                 #     word.append("不")
                 input_ids = tensor(
@@ -230,26 +224,32 @@ class FTDataSetV2(Dataset):
                         ["[SEP]"] + word +
                         list(f"是一个{self.tag_rules[label]}") +
                         ["[SEP]"])).int()
+                attention_mask = torch.zeros(self.max_seq_length).int()
+                attention_mask[:input_ids.shape[0]] = 1
                 input_ids = torch.cat([
                     input_ids,
                     tensor([0] * (self.max_seq_length - input_ids.shape[0]))
                 ])
 
-                attention_mask = torch.zeros(self.max_seq_length).int()
+                origin_attention_mask = torch.zeros(self.max_seq_length).int()
+                origin_attention_mask[start + 1:end + 1] = 1
+                entity_attention_mask = torch.zeros(self.max_seq_length).int()
                 start = len(
                     text[:self.max_seq_length - 6 - len(word) -
                          len(f"{self.tag_rules[label]}")]) + 5 + len(word)
                 end = start + len(self.tag_rules[label])
-                attention_mask[start:end] = 1
-                return input_ids, attention_mask, int(positive)
+                entity_attention_mask[start:end] = 1
+                return origin_attention_mask, input_ids, attention_mask, entity_attention_mask, int(
+                    positive)
 
-            yield convert(label, word)
+            yield convert(start, end, label, word)
             id = self.label_vocab.token2id(token=f"B-{label}")
             next_ids = (id + 1) % len(self.label_vocab)
             while self.label_vocab.id2token(next_ids)[0] != 'B':
                 next_ids = (next_ids + 1) % len(self.label_vocab)
             assert next_ids != id
-            yield convert(self.label_vocab.id2token(next_ids)[2:], word, False)
+            yield convert(start, end,
+                          self.label_vocab.id2token(next_ids)[2:], word, False)
 
     def convert_embedding(self, obj, return_dict: bool = False):
         if "text" not in obj:
@@ -305,12 +305,14 @@ class FTDataSetV2(Dataset):
         reader = FileReader(self.file)
         line_total = reader.line_size()
         self.input_token_ids = []
+        self.input_entitiy_mask = []
         self.segment_ids = []
         self.attention_mask = []
         self.matched_word_ids = []
         self.matched_word_mask = []
         self.prompt_input_ids = []
         self.prompt_attention_mask = []
+        self.prompt_entity_mask = []
         self.positive = []
         self.labels = []
 
@@ -321,15 +323,17 @@ class FTDataSetV2(Dataset):
             data: Dict[str, List[Any]] = json.loads(line)
             input_token_ids, segment_ids, attention_mask, matched_word_ids, matched_word_mask, labels = self.convert_embedding(
                 data)
-            for prompt_input_ids, prompt_attention_mask, positive in self.convert_prompt(
+            for input_entity_mask, prompt_input_ids, prompt_attention_mask, prompt_entity_mask,  positive in self.convert_prompt(
                     data):
                 self.prompt_input_ids.append(prompt_input_ids)
                 self.prompt_attention_mask.append(prompt_attention_mask)
                 self.input_token_ids.append(input_token_ids)
+                self.input_entitiy_mask.append(input_entity_mask)
                 self.segment_ids.append(segment_ids)
                 self.attention_mask.append(attention_mask)
                 self.matched_word_ids.append(matched_word_ids)
                 self.matched_word_mask.append(matched_word_mask)
+                self.prompt_entity_mask.append(prompt_entity_mask)
                 self.positive.append(positive)
                 self.labels.append(labels)
 
@@ -356,8 +360,9 @@ class FTDataSetV2(Dataset):
                 torch.stack([self.prompt_input_ids[i] for i in idx]),
                 'prompt_attention_mask':
                 torch.stack([self.prompt_attention_mask[i] for i in idx]),
-                'positive':
-                [self.positive[i] for i in idx],
+                'positive': [self.positive[i] for i in idx],
+                'input_entity_mask':[self.input_entitiy_mask[i] for i in idx],
+                'prompt_entity_mask':[self.prompt_entity_mask[i] for i in idx],
                 'labels':
                 torch.stack([self.labels[i] for i in idx])
             }
@@ -371,6 +376,8 @@ class FTDataSetV2(Dataset):
                 'prompt_input_ids': self.prompt_input_ids[idx],
                 'positive': self.positive[idx],
                 'prompt_attention_mask': self.prompt_attention_mask[idx],
+                'input_entity_mask':self.input_entitiy_mask[idx],
+                'prompt_entity_mask':self.prompt_entity_mask[idx],
                 'labels': self.labels[idx]
             }
 
