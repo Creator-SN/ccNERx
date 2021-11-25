@@ -114,11 +114,11 @@ for i in range(len(old_loader.myData)):
 # %%
 for index in range(10):
     data =[]
-    for i,j in enumerate(loader.myData[index]["prompt_attention_mask"].tolist()):
+    for i,j in enumerate(loader.myData[index]["attention_mask"].tolist()):
         if j==1:
-            data.append(loader.myData[index]["prompt_input_ids"][i])
+            data.append(loader.myData[index]["input_ids"][i])
     print(loader.tokenizer.decode(data))
-    print(loader.tokenizer.decode(loader.myData[index]["prompt_input_ids"]))
+    print(loader.tokenizer.decode(loader.myData[index]["input_ids"]))
 
 #%%
 choices = ("input_ids","origin_labels","input_labels","labels","matched_label_ids","matched_word_ids")
