@@ -131,9 +131,8 @@ class NERTrainer(ITrainer):
             self.eval_set = result['eval_set']
             self.eval_iter = result['eval_iter']
 
-    def train(self, resume_path=False, resume_step=False, lr1=2e-5, lr2=1e-3):
-        alpha = 1e-10
-
+    def train(self, resume_path=False, resume_step=False, lr1=2e-5, lr2=1e-3, eval_call_epoch=None):
+        
         optimizer = optim.AdamW([
             {'params': self.model.parameters(), 'lr': lr1},
             {'params': self.birnncrf.parameters(), 'lr': lr2}
@@ -255,14 +254,22 @@ class NERTrainer(ITrainer):
 
             model_uid = self.save_model(train_step)
             if self.eval_data:
-                self.eval()
+                if eval_call_epoch is None or eval_call_epoch(epoch):
+                    self.eval()
+                else:
+                    self.analysis.append_eval_record({
+                        'loss': 'skip',
+                        # 'f1': (2 * test_acc * test_recall) / (test_acc + test_recall + alpha),
+                        'f1': 'skip',
+                        'acc': 'skip',
+                        'recall': 'skip'
+                    })
 
             self.analysis.save_ner_record(
                 uid=current_uid if self.task_name is None else self.task_name)
             yield (epoch + 1, self.analysis.train_record, self.analysis.eval_record, self.analysis.model_record, model_uid)
 
     def eval(self):
-        alpha = 1e-10
 
         test_count = 0
         eval_loss = 0

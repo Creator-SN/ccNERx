@@ -185,18 +185,8 @@ class BertLayer(nn.Module):
         if self.has_word_attn:
             assert input_word_mask is not None
 
-            h_ori = torch.repeat_interleave(layer_output.unsqueeze(2), repeats=input_word_embeddings.shape[2], dim=2) # [Batch_size, Seq_len, Word_size, hidden_size]
-
             # input_word_embeddings -> [Batch_size, Seq_len, Word_size, word_embed_dim]
             # input_label_embeddings -> [Batch_size, Seq_len, Word_size, Label_size, label_embed_dim]
-            label_attn_score = torch.matmul(h_ori.unsqueeze(3), self.attn_Label_W) # [Batch_size, Seq_len, Word_size, 1, label_embed_dim]
-            label_attn_score = torch.matmul(label_attn_score, torch.transpose(input_label_embeddings, 3, 4)) # [Batch_size, Seq_len, Word_size, 1, Label_size]
-            label_attn_score = label_attn_score.squeeze() # [Batch_size, Seq_len, Word_size, Label_size]
-            label_attn_score = label_attn_score + (1 - input_label_mask.float()) * (-10000.0)
-            label_attn_score = torch.nn.Softmax(dim=-1)(label_attn_score)
-            label_attn_score = label_attn_score.unsqueeze(-1) # [Batch_size, Seq_len, Word_size, Label_size, 1]
-            
-            sum_label_embeddings = torch.sum(input_label_embeddings * label_attn_score, dim=3) # [Batch_size, Seq_len, Word_size, label_embed_dim]
             
             # label_feature = self.word_label_transform(torch.cat([input_word_embeddings, sum_label_embeddings], dim=-1))
             # label_feature = self.act(label_feature)
@@ -206,6 +196,15 @@ class BertLayer(nn.Module):
             # transform word_dim + label_dim => 768 
             word_outputs = self.word_transform(
                 input_word_embeddings)  # [Batch_size, Seq_L, Word_size, hidden_size]
+            
+            label_attn_score = torch.matmul(word_outputs.unsqueeze(3), self.attn_Label_W) # [Batch_size, Seq_len, Word_size, 1, label_embed_dim]
+            label_attn_score = torch.matmul(label_attn_score, torch.transpose(input_label_embeddings, 3, 4)) # [Batch_size, Seq_len, Word_size, 1, Label_size]
+            label_attn_score = label_attn_score.squeeze() # [Batch_size, Seq_len, Word_size, Label_size]
+            label_attn_score = label_attn_score + (1 - input_label_mask.float()) * (-10000.0)
+            label_attn_score = torch.nn.Softmax(dim=-1)(label_attn_score)
+            label_attn_score = label_attn_score.unsqueeze(-1) # [Batch_size, Seq_len, Word_size, Label_size, 1]
+            sum_label_embeddings = torch.sum(input_label_embeddings * label_attn_score, dim=3) # [Batch_size, Seq_len, Word_size, label_embed_dim]
+
             word_outputs = word_outputs + sum_label_embeddings
             word_outputs = self.act(word_outputs)
             word_outputs = self.word_word_weight(word_outputs)
