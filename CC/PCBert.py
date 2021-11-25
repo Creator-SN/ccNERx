@@ -114,13 +114,9 @@ class BertLayer(nn.Module):
             
             self.word_label_transform = nn.Linear(config.word_embed_dim + config.label_embed_dim, config.word_embed_dim)
             self.label_label_weight = nn.Linear(config.word_embed_dim, config.word_embed_dim)
-            attn_Label_W = torch.zeros(config.label_embed_dim, config.label_embed_dim)
+            attn_Label_W = torch.zeros(config.word_embed_dim, config.word_embed_dim)
             self.attn_Label_W = nn.Parameter(attn_Label_W)
             self.attn_Label_W.data.normal_(mean=0.0, std=config.initializer_range)
-
-            attn_Label_Word_W = torch.zeros(config.word_embed_dim, config.word_embed_dim)
-            self.attn_Label_Word_W = nn.Parameter(attn_Label_Word_W)
-            self.attn_Label_Word_W.data.normal_(mean=0.0, std=config.initializer_range)
 
         self.intermediate = BertIntermediate(config)
         self.output = BertOutput(config)
@@ -132,7 +128,6 @@ class BertLayer(nn.Module):
             input_word_embeddings=None,
             input_label_embeddings=None,
             input_word_mask=None,
-            input_label_mask=None,
             head_mask=None,
             encoder_hidden_states=None,
             encoder_attention_mask=None,
@@ -176,8 +171,7 @@ class BertLayer(nn.Module):
             attention_output = cross_attention_outputs[0]
             # add cross attentions if we output attention weights
             outputs = outputs + cross_attention_outputs[1:]
-        
-        # [Batch_size, seq_len, hidden_size]
+
         layer_output = apply_chunking_to_forward(
             self.feed_forward_chunk, self.chunk_size_feed_forward, self.seq_len_dim, attention_output
         )
@@ -185,42 +179,39 @@ class BertLayer(nn.Module):
         if self.has_word_attn:
             assert input_word_mask is not None
 
-            # input_word_embeddings -> [Batch_size, Seq_len, Word_size, word_embed_dim]
-            # input_label_embeddings -> [Batch_size, Seq_len, Word_size, Label_size, label_embed_dim]
-            
-            # label_feature = self.word_label_transform(torch.cat([input_word_embeddings, sum_label_embeddings], dim=-1))
-            # label_feature = self.act(label_feature)
-            # label_feature = self.label_label_weight(label_feature)
-            # label_feature = self.dropout(label_feature)
-            # input_word_fusion = input_word_embeddings + label_feature
-            # transform word_dim + label_dim => 768 
-            word_outputs = self.word_transform(
-                input_word_embeddings)  # [Batch_size, Seq_L, Word_size, hidden_size]
-            
-            label_attn_score = torch.matmul(word_outputs.unsqueeze(3), self.attn_Label_W) # [Batch_size, Seq_len, Word_size, 1, label_embed_dim]
+            # h_ori = torch.repeat_interleave(layer_output.unsqueeze(2), repeats=input_label_embeddings.shape[2], dim=2)
+
+            # input_word_embeddings [Batch_size, Seq_len, Word_size, Label_size, Dim]
+            label_attn_score = torch.matmul(input_word_embeddings.unsqueeze(3), self.attn_Label_W) # [Batch_size, Seq_len, Word_size, 1, Dim]
             label_attn_score = torch.matmul(label_attn_score, torch.transpose(input_label_embeddings, 3, 4)) # [Batch_size, Seq_len, Word_size, 1, Label_size]
             label_attn_score = label_attn_score.squeeze() # [Batch_size, Seq_len, Word_size, Label_size]
-            label_attn_score = label_attn_score + (1 - input_label_mask.float()) * (-10000.0)
             label_attn_score = torch.nn.Softmax(dim=-1)(label_attn_score)
             label_attn_score = label_attn_score.unsqueeze(-1) # [Batch_size, Seq_len, Word_size, Label_size, 1]
-            sum_label_embeddings = torch.sum(input_label_embeddings * label_attn_score, dim=3) # [Batch_size, Seq_len, Word_size, label_embed_dim]
-
-            word_outputs = word_outputs + sum_label_embeddings
+            
+            sum_label_embeddings = torch.sum(input_label_embeddings * label_attn_score, dim=3)
+            label_feature = self.word_label_transform(torch.cat([input_word_embeddings, sum_label_embeddings], dim=-1))
+            label_feature = self.act(label_feature)
+            label_feature = self.label_label_weight(label_feature)
+            label_feature = self.dropout(label_feature)
+            input_word_fusion = input_word_embeddings + label_feature
+            # transform word_dim + label_dim => 768 
+            word_outputs = self.word_transform(
+                input_word_fusion)  # [Batch_size, Seq_L, Words_sum, Dim]
             word_outputs = self.act(word_outputs)
             word_outputs = self.word_word_weight(word_outputs)
             word_outputs = self.dropout(word_outputs)
 
-            # attention_output = attention_output.unsqueeze(2) # [Batch_size, Seq_L, hidden_size] -> [Batch_size, Seq_L, 1, hidden_size]
+            # attention_output = attention_output.unsqueeze(2) # [Batch_size, Seq_L, Dim] -> [Batch_size, Seq_L, 1, Dim]
             alpha = torch.matmul(layer_output.unsqueeze(2),
-                                 self.attn_W)  # [Batch_size, Seq_L, 1, hidden_size]
+                                 self.attn_W)  # [Batch_size, Seq_L, 1, Dim]
             alpha = torch.matmul(alpha, torch.transpose(
-                word_outputs, 2, 3))  # [Batch_size, Seq_L, 1, Word_size]
-            alpha = alpha.squeeze()  # [Batch_size, Seq_L, Word_size]
+                word_outputs, 2, 3))  # [Batch_size, Seq_L, 1, Words_sum]
+            alpha = alpha.squeeze()  # [Batch_size, Seq_L, Words_sum]
             alpha = alpha + (1 - input_word_mask.float()) * (-10000.0)
-            alpha = torch.nn.Softmax(dim=-1)(alpha)  # [Batch_size, Seq_L, Word_size]
-            alpha = alpha.unsqueeze(-1)  # [Batch_size, Seq_L, Word_size, 1]
+            alpha = torch.nn.Softmax(dim=-1)(alpha)  # [Batch_size, Seq_L, Words_sum]
+            alpha = alpha.unsqueeze(-1)  # [Batch_size, Seq_L, Words_sum, 1]
             weighted_word_embedding = torch.sum(
-                word_outputs * alpha, dim=2)  # [Batch_size, Seq_L, hidden_size]
+                word_outputs * alpha, dim=2)  # [Batch_size, Seq_L, Dim]
             layer_output = layer_output + weighted_word_embedding
 
             layer_output = self.dropout(layer_output)
@@ -257,7 +248,6 @@ class BertEncoder(nn.Module):
             input_word_embeddings=None,
             input_label_embeddings=None,
             input_word_mask=None,
-            input_label_mask=None,
             head_mask=None,
             encoder_hidden_states=None,
             encoder_attention_mask=None,
@@ -290,7 +280,6 @@ class BertEncoder(nn.Module):
                     input_word_embeddings,
                     input_label_embeddings,
                     input_word_mask,
-                    input_label_mask,
                     layer_head_mask,
                     encoder_hidden_states,
                     encoder_attention_mask,
@@ -302,7 +291,6 @@ class BertEncoder(nn.Module):
                     input_word_embeddings,
                     input_label_embeddings,
                     input_word_mask,
-                    input_label_mask,
                     layer_head_mask,
                     encoder_hidden_states,
                     encoder_attention_mask,
@@ -399,7 +387,6 @@ class PCBertModel(BertPreTrainedModel):
         matched_word_embeddings=None,
         matched_label_embeddings=None,
         matched_word_mask=None,
-        matched_label_mask=None,
         position_ids=None,
         head_mask=None,
         inputs_embeds=None,
@@ -495,7 +482,6 @@ class PCBertModel(BertPreTrainedModel):
             input_word_embeddings=matched_word_embeddings,
             input_label_embeddings=matched_label_embeddings,
             input_word_mask=matched_word_mask,
-            input_label_mask=matched_label_mask,
             head_mask=head_mask,
             encoder_hidden_states=encoder_hidden_states,
             encoder_attention_mask=encoder_extended_attention_mask,

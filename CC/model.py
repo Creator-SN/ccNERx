@@ -42,7 +42,7 @@ class CCNERModel(IModel):
             self.pretrained_file_name, pretrained_embeddings=self.pretrained_embeddings, config=config)
         elif self.model_name == 'PLEBert':
             self.model = PLEBertModel.from_pretrained(
-            self.pretrained_file_name, pretrained_embeddings=self.pretrained_embeddings, config=config)
+            self.pretrained_file_name, pretrained_embeddings=self.pretrained_embeddings, label_embeddings=self.label_embeddings, config=config)
         elif self.model_name == 'Bert':
             self.model = BertBaseModel.from_pretrained(
             self.pretrained_file_name, config=config)
@@ -210,16 +210,16 @@ class PLEBertModel(BertPreTrainedModel):
     pretrained_embeddings: 预训练embeddings shape: size * 200
     '''
 
-    def __init__(self, config, pretrained_embeddings):
+    def __init__(self, config, pretrained_embeddings, label_embeddings):
         super().__init__(config)
 
         word_vocab_size = pretrained_embeddings.shape[0]
         embed_dim = pretrained_embeddings.shape[1]
         self.word_embeddings = nn.Embedding(word_vocab_size, embed_dim)
 
-        # label_vocab_size = label_embeddings.shape[0]
-        # label_dim = label_embeddings.shape[1]
-        # self.label_embeddings = nn.Embedding(label_vocab_size, label_dim)
+        label_vocab_size = label_embeddings.shape[0]
+        label_dim = label_embeddings.shape[1]
+        self.label_embeddings = nn.Embedding(label_vocab_size, label_dim)
         self.bert = PCBertModel(config)
 
         self.init_weights()
@@ -227,8 +227,8 @@ class PLEBertModel(BertPreTrainedModel):
         # init the embedding
         self.word_embeddings.weight.data.copy_(
             torch.from_numpy(pretrained_embeddings))
-        # self.label_embeddings.weight.data.copy_(
-        #     torch.from_numpy(label_embeddings))
+        self.label_embeddings.weight.data.copy_(
+            torch.from_numpy(label_embeddings))
         print("Load pretrained embedding from file.........")
 
     def forward(
@@ -237,16 +237,15 @@ class PLEBertModel(BertPreTrainedModel):
     ):
         matched_word_embeddings = self.word_embeddings(
             args['matched_word_ids'])
-        # matched_label_embeddings = self.label_embeddings(
-        #     args['matched_label_ids'])
+        matched_label_embeddings = self.label_embeddings(
+            args['matched_label_ids'])
         outputs = self.bert(
             input_ids=args['input_ids'],
             attention_mask=args['attention_mask'],
             token_type_ids=args['token_type_ids'],
             matched_word_embeddings=matched_word_embeddings,
-            matched_label_embeddings=args['matched_label_embeddings'],
-            matched_word_mask=args['matched_word_mask'],
-            matched_label_mask=args['matched_label_mask']
+            matched_label_embeddings=matched_label_embeddings,
+            matched_word_mask=args['matched_word_mask']
         )
 
         sequence_output = outputs[0]
