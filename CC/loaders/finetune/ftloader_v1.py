@@ -406,7 +406,7 @@ class FTDataSetV1(Dataset):
         else:
             self.__get_matched_label_embeddings(idx)
 
-    @lru_cache(10000)
+    @lru_cache(2000)
     def __get_matched_label_embeddings(self,index):
         cache = self.cache.group("temp_embedding")
         return cache.load(f"{index}.pkl")
