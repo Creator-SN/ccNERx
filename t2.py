@@ -110,7 +110,8 @@ for i in range(len(old_loader.myData)):
         clear_output()
     
 
-
+#%%
+loader.myData[0]
 # %%
 for index in range(10):
     data =[]
