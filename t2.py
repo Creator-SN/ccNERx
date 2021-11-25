@@ -112,7 +112,8 @@ for i in range(len(old_loader.myData)):
 
 
 # %%
-loader.myData[0:100]["matched_label_embedding"]
+loader.myData[0:10000]["matched_label_embeddings"]
+
 #%%
 choices = ("input_ids","origin_labels","input_labels","labels","matched_label_ids","matched_word_ids")
 index = 4

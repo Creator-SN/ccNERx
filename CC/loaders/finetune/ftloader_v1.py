@@ -1,7 +1,6 @@
+from functools import lru_cache
 import json
-import os
-from shutil import rmtree
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Union
 import torch
 from torch.utils.data import DataLoader, Dataset
 from transformers.utils.dummy_pt_objects import BertModel
@@ -15,11 +14,11 @@ from CC.loaders.utils.vocab import Vocab
 from transformers import BertTokenizer, BertModel
 from ICCSupervised.ICCSupervised import IDataLoader
 import random
-import numpy as np
 from torch import tensor
 from tqdm import tqdm
 import tempfile
-import pickle
+import threading
+
 
 
 class FTLoaderV1(IDataLoader):
@@ -82,7 +81,7 @@ class FTLoaderV1(IDataLoader):
         cache = self.cache.group(self.max_scan_num)
 
         self.tokenizer = BertTokenizer.from_pretrained(self.bert_pretrain_path)
-        self.encoder_model = BertModel.from_pretrained(self.bert_pretrain_path)
+        self.encoder_model = BertModel.from_pretrained(self.bert_pretrain_path,output_hidden_states=True)
         self.encoder_model.eval()
 
         with open(self.external_entities_file, "r", encoding="utf-8") as f:
@@ -126,7 +125,7 @@ class FTLoaderV1(IDataLoader):
                             it = dict((k, torch.tensor(v).unsqueeze(0))
                                       for k, v in encoding.items())
                             output = self.encoder_model(**it)
-                            embedding = output.last_hidden_state[0][0]
+                            embedding = output.hidden_states[-3][0][0]
                             word_label_embedding_dim = len(embedding)
                         word_label_embedding[idx][
                             self.entity_tag_vocab.token2id(
@@ -149,19 +148,19 @@ class FTLoaderV1(IDataLoader):
                      batch_size: int,
                      eval_batch_size: int = None,
                      test_batch_size: int = None):
-        cache = self.cache.group(f"{self.max_scan_num}-process")
         if self.use_test:
-            self.myData_test = cache.load("testdata",lambda: FTDataSetV1(
+            self.myData_test = FTDataSetV1(
                 self.data_files[2], self.tokenizer, self.lexicon_tree,
                 self.word_vocab, self.tag_vocab, self.max_word_num,
                 self.max_seq_length, self.default_tag, self.entity_tag_vocab,
                 self.external_entities, self.max_label_num,
                 self.word_label_embedding, self.word_label_embedding_dim,
-                self.do_predict))
+                do_predict=self.do_predict,
+                cache=self.cache)
             self.dataiter_test = DataLoader(self.myData_test,
                                             batch_size=test_batch_size)
         else:         
-            self.myData = cache.load("mydata",lambda: FTDataSetV1(self.data_files[0],
+            self.myData = FTDataSetV1(self.data_files[0],
                                       self.tokenizer,
                                       self.lexicon_tree,
                                       self.word_vocab,
@@ -174,17 +173,19 @@ class FTLoaderV1(IDataLoader):
                                       self.max_label_num,
                                       self.word_label_embedding,
                                       self.word_label_embedding_dim,
-                                      do_shuffle=self.do_shuffle))
+                                      do_shuffle=self.do_shuffle,
+                                      cache=self.cache)
 
             self.dataiter = DataLoader(self.myData, batch_size=batch_size)
             if self.output_eval:
-                self.myData_eval = cache.load("evaldata",lambda: FTDataSetV1(
+                self.myData_eval =  FTDataSetV1(
                     self.data_files[1], self.tokenizer, self.lexicon_tree,
                     self.word_vocab, self.tag_vocab, self.max_word_num,
                     self.max_seq_length, self.default_tag,
                     self.entity_tag_vocab, self.external_entities,
                     self.max_label_num, self.word_label_embedding,
-                    self.word_label_embedding_dim))
+                    self.word_label_embedding_dim,
+                    cache=self.cache)
                 self.dataiter_eval = DataLoader(self.myData_eval,
                                                 batch_size=eval_batch_size)
 
@@ -244,6 +245,7 @@ class FTDataSetV1(Dataset):
         word_label_embedding_dim: int = 768,
         do_predict: bool = False,
         do_shuffle: bool = False,
+        cache:FileCache = None,
     ) -> None:
 
         self.file: str = file
@@ -261,6 +263,7 @@ class FTDataSetV1(Dataset):
         self.max_label_num = max_label_num
         self.word_label_embedding = word_label_embedding
         self.word_label_embedding_dim = word_label_embedding_dim
+        self.cache = cache
         if not self.do_predict:
             self.init_dataset()
 
@@ -364,6 +367,7 @@ class FTDataSetV1(Dataset):
         # self.matched_label_embeddings = []
         self.matched_label_embeddings_path = tempfile.mkdtemp()
         self.labels = []
+        cache = self.cache.group("temp_embedding")
 
         for index, line in tqdm(enumerate(reader.line_iter()),
                                 desc=f"load dataset from {self.file}",
@@ -380,27 +384,45 @@ class FTDataSetV1(Dataset):
             self.matched_word_mask.append(matched_word_mask)
             self.matched_label_ids.append(matched_label_ids)
             self.matched_label_mask.append(matched_label_mask)
-            with open(
-                    os.path.join(self.matched_label_embeddings_path,
-                                 f"{index}.pkl"), "wb") as f:
-                pickle.dump(matched_label_embeddings, f)
+            cache.save(f"{index}.pkl",matched_label_embeddings)
             self.labels.append(labels)
 
         self.size = len(self.input_token_ids)
         self.indexes = [i for i in range(self.size)]
+        self.preload_thread:threading.Thread = threading.Thread(target=FTDataSetV1.__preloadding,args=(self,slice(0,1000,1)))
+        self.preload_thread.start()
         if self.do_shuffle:
             random.shuffle(self.indexes)
 
-    def __getitem__(self, idx):
+    def __del__(self):
+        if self.preload_thread.isAlive():
+            self.preload_thread.join()
+
+    def __preloadding(self,idx:Union[slice,int]):
         idx = self.indexes[idx]
+        if isinstance(idx,list):
+            for i in idx:
+                self.__get_matched_label_embeddings(i)
+        else:
+            self.__get_matched_label_embeddings(idx)
+
+    @lru_cache(2000)
+    def __get_matched_label_embeddings(self,index):
+        cache = self.cache.group("temp_embedding")
+        return cache.load(f"{index}.pkl")
+
+    def __getitem__(self, index):
+        idx = self.indexes[index]
         matched_label_embeddings = []
         if isinstance(idx, list):
             for i in idx:
-                with open(
-                        os.path.join(self.matched_label_embeddings_path,
-                                     f"{i}.pkl"), "rb") as f:
-                    matched_label_embeddings.append(pickle.load(f))
+                matched_label_embeddings.append(self.__get_matched_label_embeddings(i))
             matched_label_embeddings = torch.stack(matched_label_embeddings)
+            
+            if not self.preload_thread.isAlive():
+                self.preload_thread:threading.Thread = threading.Thread(target=FTDataSetV1.__preloadding,args=(self,slice(index.stop,index.stop+1000,1)))
+                self.preload_thread.start()
+
             return {
                 'input_ids': torch.stack([self.input_token_ids[i] for i in idx]),
                 'attention_mask': torch.stack([self.attention_mask[i] for i in idx]),
@@ -413,10 +435,12 @@ class FTDataSetV1(Dataset):
                 'labels': torch.stack([self.labels[i] for i in idx])
             }
         else:
-            with open(
-                    os.path.join(self.matched_label_embeddings_path,
-                                 f"{idx}.pkl"), "rb") as f:
-                matched_label_embeddings = pickle.load(f)
+            matched_label_embeddings = self.__get_matched_label_embeddings(idx)
+
+            if not self.preload_thread.isAlive():
+                self.preload_thread:threading.Thread = threading.Thread(target=FTDataSetV1.__preloadding,args=(self,slice(index+1,index+1001,1)))
+                self.preload_thread.start()
+
             return {
                 'input_ids': self.input_token_ids[idx],
                 'attention_mask': self.attention_mask[idx],

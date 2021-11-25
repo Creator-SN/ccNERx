@@ -98,7 +98,6 @@ class MLabelLLoader(IDataLoader):
 
             self.dataiter = DataLoader(self.myData, batch_size=batch_size)
             if self.output_eval:
-                key = "eval_data"
                 self.myData_eval = LEBertDataSet(self.data_files[1], self.tokenizer, self.lexicon_tree, self.word_vocab,
                                                  self.tag_vocab, self.max_word_num,  self.max_seq_length, self.default_tag,self.entity_tag_vocab,self.external_entities,self.max_label_num, ignore_rules=self.ignore_rules)
                 self.dataiter_eval = DataLoader(
