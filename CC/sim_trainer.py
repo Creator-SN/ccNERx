@@ -186,7 +186,7 @@ class SimNERTrainer(ITrainer):
                 ner_loss = self.birnncrf.loss(
                     hidden_states, it['input_ids'].gt(0), it['labels'])
                 
-                loss = ner_loss + 0.3 * sim_loss
+                loss = ner_loss + sim_loss
                 loss = loss.mean()
 
                 loss.backward()
@@ -323,7 +323,7 @@ class SimNERTrainer(ITrainer):
                 ner_loss = self.birnncrf.loss(
                     hidden_states, it['input_ids'].gt(0), it['labels'])
                 
-                loss = ner_loss + 0.3 * sim_loss
+                loss = ner_loss + sim_loss
                 loss = loss.mean()
 
                 eval_loss += loss.data.item()
