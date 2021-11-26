@@ -14,6 +14,8 @@ class BiRnnCrf(nn.Module):
         self.rnn = RNN(self.embedding_dim, hidden_dim // 2, num_layers=num_rnn_layers,
                        bidirectional=True, batch_first=True)
         self.crf = CRF(hidden_dim, self.tagset_size)
+        self.sim_fc = nn.Linear(embedding_dim + hidden_dim, 2)
+        self.sim_loss = nn.BCELoss()
 
     def __build_features(self, embeds, masks):
 
@@ -33,6 +35,16 @@ class BiRnnCrf(nn.Module):
         features, masks = self.__build_features(embeds, masks)
         loss = self.crf.loss(features, tags, masks=masks)
         return loss
+    
+    def lstm_features(self, embeds, masks):
+        rnn_out, _ = self.rnn(embeds)
+        return rnn_out, masks
+    
+    def fc(self, fusion, labels):
+        fusion_outputs = self.sim_fc(fusion)
+        p = nn.functional.softmax(fusion_outputs, dim=-1)
+        loss = self.sim_loss(p[:,1], labels.float())
+        return p, loss
 
     def forward(self, embeds, masks):
         # Get the emission scores from the BiLSTM

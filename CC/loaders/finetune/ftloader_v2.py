@@ -35,8 +35,7 @@ class FTLoaderV2(IDataLoader):
             .add_argument("eval_file", str) \
             .add_argument("test_file", str) \
             .add_argument("tag_file", str) \
-            .add_argument("bert_pretrain_path", str,
-                description="Bert Pretrain Path, e.g: /model/bert/ , /model/bert contains config.json/vocab.txt/pytorch.bin") \
+            .add_argument("bert_vocab_file", str) \
             .add_argument("output_eval", bool, defaultValue=False) \
             .add_argument("max_scan_num", int, defaultValue=1000000) \
             .add_argument("add_seq_vocab", bool, defaultValue=False) \
@@ -74,7 +73,7 @@ class FTLoaderV2(IDataLoader):
 
         cache = self.cache.group(self.max_scan_num)
 
-        self.tokenizer = BertTokenizer.from_pretrained(self.bert_pretrain_path)
+        self.tokenizer = BertTokenizer.from_pretrained(self.bert_vocab_file)
 
         self.lexicon_tree = cache.load(
             "lexicon_tree", lambda: TrieFactory.get_trie_from_vocabs(
