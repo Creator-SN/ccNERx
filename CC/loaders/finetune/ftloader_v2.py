@@ -113,7 +113,8 @@ class FTLoaderV2(IDataLoader):
                                            self.default_tag,
                                            self.tag_rules,
                                            do_predict=self.do_predict,
-                                           cache=self.cache)
+                                           cache=self.cache,
+                                           expand=False)
             self.dataiter_test = DataLoader(self.myData_test,
                                             batch_size=test_batch_size)
         else:
@@ -140,7 +141,8 @@ class FTLoaderV2(IDataLoader):
                                                self.max_seq_length,
                                                self.default_tag,
                                                self.tag_rules,
-                                               cache=self.cache)
+                                               cache=self.cache,
+                                               expand=False)
                 self.dataiter_eval = DataLoader(self.myData_eval,
                                                 batch_size=eval_batch_size)
 
@@ -191,6 +193,7 @@ class FTDataSetV2(Dataset):
         do_predict: bool = False,
         do_shuffle: bool = False,
         cache: FileCache = None,
+        expand: bool = True,
     ) -> None:
 
         self.file: str = file
@@ -205,6 +208,7 @@ class FTDataSetV2(Dataset):
         self.do_shuffle: bool = do_shuffle
         self.do_predict: bool = do_predict
         self.cache = cache
+        self.expand = expand
         if not self.do_predict:
             self.init_dataset()
 
@@ -242,6 +246,8 @@ class FTDataSetV2(Dataset):
                     positive)
 
             yield convert(start, end, label, word)
+            if not self.expand:
+                continue
             id = self.label_vocab.token2id(token=f"B-{label}")
             next_ids = (id + 1) % len(self.label_vocab)
             while self.label_vocab.id2token(next_ids)[0] != 'B':

@@ -22,6 +22,7 @@ args = {
     "default_tag": "O",
     'batch_size': 8,
     'eval_batch_size': 64,
+    'output_eval': True,
     'model_name': 'LEXBert',
     'task_name': 'Loader_test',
     "use_gpu": True,
@@ -183,29 +184,17 @@ with open(savefile, "w", encoding="utf-8") as f:
 
 
 # %%
-from tools.expand_data import DataExpand
-loader = DataExpand(**{
-    "debug": True,
-    "file_name": "data/weibo/train.json",
-    "allow_origin": False
-}).read_data_set("data/weibo/train.json", 1.0) \
-    .process_data(20) \
-    .to_file("./data/weibonew/train_test.json")
-
-# .to_file("./data/weibonew/train_origin.json") \
-
-# %%
 print(FileUtil.count_lines("./data/weibonew/train.json"))
 # %%
 args = {
     'num_epochs': 30,
     'num_gpus': [0, 1, 2, 3],
-    'bert_config_file_name': 'model/chinese_wwm_ext/bert_config.json',
+    'bert_config_file_name': 'model/chinese_wwm_ext/config.json',
     # 'bert_config_file_name': 'save_pretrained/weibo_x20_pretrained/Bert_2910/config.json',
     'hidden_dim': 300,
     'max_seq_length': 150,
     'max_scan_num': 1000000,
-    'train_file': './data/weibonew/train_20_epoch.json',
+    'train_file': './data/weibo/train.json',
     'eval_file': './data/weibo/dev.json',
     'test_file': './data/weibo/test.json',
     'bert_vocab_file': 'model/chinese_wwm_ext/vocab.txt',
@@ -219,7 +208,7 @@ args = {
     'eval_batch_size': 64,
     'do_shuffle': True,
     'model_name': 'LEBert',
-    'task_name': 'weibo_20_epoch_GPT2',
+    'task_name': 'no_tx',
     'pretrained_file_name':'model/chinese_wwm_ext/pytorch_model.bin'
     # 'pretrained_file_name':'save_pretrained/weibo_x20_pretrained/Bert_2910/pytorch_model.bin'
 }
@@ -295,50 +284,3 @@ pre_trainer = NERPreTrainer(**args)
 
 for i in pre_trainer():
     a = i
-    
-# %%
-from CC.loaders.utils import LabelCounter
-counter = LabelCounter()
-example = {"text": ["延", "参", "法", "师", "品", "味", "人", "生", "如", "同", "走", "进", "一", "片", "山", "水", "，", "静", "静", "的", "呼", "吸", "，", "安", "静", "的", "欣", "赏", "，", "这", "就", "是", "生", "活", "。"], "label": ["B-PER.NAM", "E-PER.NAM", "B-PER.NOM", "E-PER.NOM", "O", "O", "O", "O", "O", "O", "O", "O", "O", "O", "O", "O", "O", "O", "O", "O", "O", "O", "O", "O", "O", "O", "O", "O", "O", "O", "O", "O", "O", "O", "O"]}
-counter.add(example["label"],example["text"])
-counter.pick("PER.NOM","人民")
-# %%
-print(counter.label_counter.keys())
-
-# %%
-from tools.tag_embedding_gen import *
-rules = {
-    "O":"非实体",
-    "PER.NOM": "指代人名",
-    "LOC.NAM": "地名",
-    "PER.NAM": "人名",
-    "GPE.NAM": "政体",
-    "ORG.NAM": "机构",
-    "ORG.NOM": "指代机构",
-    "LOC.NOM": "指代地名",
-    "GPE.NOM": "指代政体",
-    "ORG": "机构",
-    "LOC": "地名",
-    "PER": "人名",
-    "Time": "时间",
-    "Thing": "物品",
-    "Metric": "度量",
-    "Abstract": "作品",
-    "Physical": "实体",
-    "Term": "术语",
-    "company": "企业",
-    "name": "名字",
-    "game": "游戏",
-    "movie": "电影",
-    "position": "职位",
-    "address": "地址",
-    "government": "政府",
-    "scene": "景点",
-    "book": "书名"
-}
-gen = EmbeddingGenerator()
-for key in rules:
-    gen+=(key,rules[key])
-gen.to_file("data/tencent/label_embedding.txt")
-        
-# %%
