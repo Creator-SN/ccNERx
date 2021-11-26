@@ -112,7 +112,7 @@ for i in range(len(old_loader.myData)):
     
 
 #%%
-loader.myData[0]
+len(loader.myData)
 # %%
 for index in range(10):
     data =[]

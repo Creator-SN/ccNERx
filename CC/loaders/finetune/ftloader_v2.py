@@ -215,6 +215,9 @@ class FTDataSetV2(Dataset):
     def convert_prompt(self, obj):
         text, labels = obj["text"], obj["label"]
         entities = get_entities(labels, text)
+        if len(entities)==0:
+            encoding = self.tokenizer(''.join(text),max_length=self.max_seq_length,padding="max_length",truncation=True,return_tensors="pt")
+            yield torch.zeros(self.max_seq_length).int(),encoding["input_ids"],encoding["attention_mask"],torch.zeros(self.max_seq_length).int(),int(0)
         for start, end, label, word in entities:
 
             def convert(start, end, label, word, positive=True):
@@ -247,7 +250,7 @@ class FTDataSetV2(Dataset):
 
             yield convert(start, end, label, word)
             if not self.expand:
-                continue
+                break
             id = self.label_vocab.token2id(token=f"B-{label}")
             next_ids = (id + 1) % len(self.label_vocab)
             while self.label_vocab.id2token(next_ids)[0] != 'B':
