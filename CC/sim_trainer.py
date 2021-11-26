@@ -115,7 +115,7 @@ class SimNERTrainer(ITrainer):
         if torch.cuda.device_count() > 0:
             self.model = nn.DataParallel(self.model, device_ids=self.num_gpus)
             self.prompt_model = nn.DataParallel(self.prompt_model, device_ids=self.num_gpus)
-            self.birnncrf = nn.DataParallel(self.birnncrf, device_ids=self.num_gpus)
+            self.birnncrf.cuda()
 
         self.model.to(device)
         self.birnncrf.to(device)
@@ -144,10 +144,13 @@ class SimNERTrainer(ITrainer):
             self.birnncrf.train()
             self.prompt_model.eval()
 
+            all_acc_list = []
             all_p_list = []
             all_r_list = []
             all_f1_list = []
             for it in train_iter:
+                pred_labels_list = []
+                true_labels_list = []
 
                 train_step += 1
 
@@ -164,7 +167,7 @@ class SimNERTrainer(ITrainer):
                 outputs = self.model(**it)
                 hidden_states = outputs['mix_output']
                 # [batch_size, seq_len, lstm_hidden_dim]
-                lstm_outputs, _ = self.birnncrf.module.lstm_features(
+                lstm_outputs, _ = self.birnncrf.lstm_features(
                     hidden_states, it['input_ids'].gt(0))
                 
                 # [batch_size, seq_len, hidden_dim]
@@ -178,8 +181,12 @@ class SimNERTrainer(ITrainer):
                 prompt_features = torch.sum(prompt_hidden_states, dim=1)
 
                 fusion = torch.cat([label_features, prompt_features], dim=-1)
-                p, loss = self.birnncrf.module.fc(fusion, it['positive'].float())
+                sim_p, sim_loss = self.birnncrf.fc(fusion, it['positive'].float())
+
+                ner_loss = self.birnncrf.loss(
+                    hidden_states, it['input_ids'].gt(0), it['labels'])
                 
+                loss = ner_loss + sim_loss
                 loss = loss.mean()
 
                 loss.backward()
@@ -191,24 +198,64 @@ class SimNERTrainer(ITrainer):
                 train_loss += loss.data.item()
                 train_count += 1
 
-                pred = p.max(-1)[1]
+                sim_pred = sim_p.max(-1)[1]
 
-                precision = ((p.max(-1)[0] > 0.8).long() == it['positive']).sum().tolist() / it['positive'].shape[0]
-                recall = (pred == it['positive']).sum().tolist() / it['positive'].shape[0]
-                f1 = 2 * precision * recall / (precision + recall)
+                b_size = it['positive'].shape[0]
+                p_score = sim_p.max(-1)[0]
+                true_positive = 0
+                positive = 0
+                for i in range(b_size):
+                    if p_score[i] >= 0.8:
+                        if sim_pred[i] == it['positive'][i]:
+                            true_positive += 1
+                        positive += 1
 
-                all_p_list.append(precision)
-                all_r_list.append(recall)
+                sim_precision = true_positive / (positive + 1e-11)
+                sim_recall = true_positive / b_size
+                sim_f1 = 2 * sim_precision * sim_recall / (sim_precision + sim_recall + 1e-11)
+
+                pred = self.birnncrf(hidden_states, it['input_ids'].gt(0))[1]
+
+                for item_index in range(it["input_ids"].shape[0]):
+                    # remove [PAD] length
+                    real_length = 0
+                    for idx in range(it['input_ids'][item_index].shape[0]-1, -1, -1):
+                        if it["input_ids"][item_index][idx] > 0:
+                            real_length = idx+1
+                            break
+                    # remove [SEP] and [CLS]
+                    pred_labels = pred[item_index][1:real_length-1]
+                    true_labels = it['labels'][item_index].tolist()[
+                        1:real_length-1]
+
+                    pred_labels = [label.replace(
+                        "M-", "I-") for label in self.analysis.idx2tag(pred_labels)]
+                    true_labels = [label.replace(
+                        "M-", "I-") for label in self.analysis.idx2tag(true_labels)]
+                    
+                    pred_labels_list.append(pred_labels)
+                    true_labels_list.append(true_labels)
+                
+                acc = accuracy_score(true_labels_list, pred_labels_list)
+                p = precision_score(
+                    true_labels_list, pred_labels_list)
+                r = recall_score(true_labels_list, pred_labels_list)
+                f1 = f1_score(true_labels_list, pred_labels_list)
+
+                all_acc_list.append(acc)
+                all_p_list.append(p)
+                all_r_list.append(r)
                 all_f1_list.append(f1)
 
+                train_acc = np.mean(all_acc_list)
                 train_precision = np.mean(all_p_list)
                 train_recall = np.mean(all_r_list)
                 F1 = np.mean(all_f1_list)
 
                 train_iter.set_description(
                     'Epoch: {}/{} Train'.format(epoch + 1, self.num_epochs))
-                train_iter.set_postfix(train_loss=train_loss / train_count, train_precision=train_precision,
-                                       train_recall=train_recall, F1=F1)
+                train_iter.set_postfix(train_loss=train_loss / train_count, train_acc=train_acc, train_precision=train_precision,
+                                       train_recall=train_recall, F1=F1, sim_p=sim_precision, sim_r=sim_recall, sim_f1=sim_f1)
             self.analysis.append_train_record({
                 'loss': loss.data.item(),
                 'f1': F1,
@@ -243,10 +290,13 @@ class SimNERTrainer(ITrainer):
         self.birnncrf.eval()
         self.prompt_model.eval()
         with torch.no_grad():
+            all_acc_list = []
             all_p_list = []
             all_r_list = []
             all_f1_list = []
             for it in test_iter:
+                pred_labels_list = []
+                true_labels_list = []
 
                 for key in it.keys():
                     it[key] = self.cuda(it[key])
@@ -254,7 +304,7 @@ class SimNERTrainer(ITrainer):
                 outputs = self.model(**it)
                 hidden_states = outputs['mix_output']
                 # [batch_size, seq_len, lstm_hidden_dim]
-                lstm_outputs, _ = self.birnncrf.module.lstm_features(
+                lstm_outputs, _ = self.birnncrf.lstm_features(
                     hidden_states, it['input_ids'].gt(0))
                 
                 # [batch_size, seq_len, hidden_dim]
@@ -268,30 +318,74 @@ class SimNERTrainer(ITrainer):
                 prompt_features = torch.sum(prompt_hidden_states, dim=1)
 
                 fusion = torch.cat([label_features, prompt_features], dim=-1)
-                p, loss = self.birnncrf.module.fc(fusion, it['positive'].float())
+                sim_p, sim_loss = self.birnncrf.fc(fusion, it['positive'].float())
 
+                ner_loss = self.birnncrf.loss(
+                    hidden_states, it['input_ids'].gt(0), it['labels'])
+                
+                loss = ner_loss + sim_loss
                 loss = loss.mean()
 
                 eval_loss += loss.data.item()
                 test_count += 1
 
-                pred = p.max(-1)[1]
+                sim_pred = sim_p.max(-1)[1]
 
-                precision = ((p.max(-1)[0] > 0.8).long() == it['positive']).sum().tolist() / it['positive'].shape[0]
-                recall = (pred == it['positive']).sum().tolist() / it['positive'].shape[0]
-                f1 = 2 * precision * recall / (precision + recall)
+                b_size = it['positive'].shape[0]
+                p_score = sim_p.max(-1)[0]
+                true_positive = 0
+                positive = 0
+                for i in range(b_size):
+                    if p_score[i] >= 0.8:
+                        if sim_pred[i] == it['positive'][i]:
+                            true_positive += 1
+                        positive += 1
 
-                all_p_list.append(precision)
-                all_r_list.append(recall)
+                sim_precision = true_positive / (positive + 1e-11)
+                sim_recall = true_positive / b_size
+                sim_f1 = 2 * sim_precision * sim_recall / (sim_precision + sim_recall + 1e-11)
+
+                pred = self.birnncrf(hidden_states, it['input_ids'].gt(0))[1]
+
+                for item_index in range(it["input_ids"].shape[0]):
+                    # remove [PAD] length
+                    real_length = 0
+                    for idx in range(it['input_ids'][item_index].shape[0]-1, -1, -1):
+                        if it["input_ids"][item_index][idx] > 0:
+                            real_length = idx+1
+                            break
+                    # remove [SEP] and [CLS]
+                    pred_labels = pred[item_index][1:real_length-1]
+                    true_labels = it['labels'][item_index].tolist()[
+                        1:real_length-1]
+
+                    pred_labels = [label.replace(
+                        "M-", "I-") for label in self.analysis.idx2tag(pred_labels)]
+                    true_labels = [label.replace(
+                        "M-", "I-") for label in self.analysis.idx2tag(true_labels)]
+                    
+                    pred_labels_list.append(pred_labels)
+                    true_labels_list.append(true_labels)
+                
+                acc = accuracy_score(true_labels_list, pred_labels_list)
+                p = precision_score(
+                    true_labels_list, pred_labels_list)
+                r = recall_score(true_labels_list, pred_labels_list)
+                f1 = f1_score(true_labels_list, pred_labels_list)
+
+                all_acc_list.append(acc)
+                all_p_list.append(p)
+                all_r_list.append(r)
                 all_f1_list.append(f1)
 
+                test_acc = np.mean(all_acc_list)
                 test_precision = np.mean(all_p_list)
                 test_recall = np.mean(all_r_list)
                 F1 = np.mean(all_f1_list)
 
                 test_iter.set_description('Eval Result')
                 test_iter.set_postfix(
-                    eval_loss=eval_loss / test_count, eval_precision=test_precision, eval_recall=test_recall, F1=F1)
+                    eval_loss=eval_loss / test_count, eval_acc=test_acc, eval_precision=test_precision, eval_recall=test_recall, F1=F1, sim_p=sim_precision, sim_r=sim_recall, sim_f1=sim_f1)
                 #   F1=(2 * test_acc * test_recall) / (test_acc + test_recall + alpha))
             self.analysis.append_eval_record({
                 'loss': loss.data.item(),
