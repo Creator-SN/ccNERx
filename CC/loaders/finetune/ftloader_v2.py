@@ -217,7 +217,7 @@ class FTDataSetV2(Dataset):
         entities = get_entities(labels, text)
         if len(entities)==0:
             encoding = self.tokenizer(''.join(text),max_length=self.max_seq_length,padding="max_length",truncation=True,return_tensors="pt")
-            yield torch.zeros(self.max_seq_length).int(),encoding["input_ids"],encoding["attention_mask"],torch.zeros(self.max_seq_length).int(),int(0)
+            yield torch.zeros(self.max_seq_length).int(),encoding["input_ids"][0],encoding["attention_mask"][0],torch.zeros(self.max_seq_length).int(),int(0)
         for start, end, label, word in entities:
 
             def convert(start, end, label, word, positive=True):
