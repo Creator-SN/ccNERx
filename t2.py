@@ -74,7 +74,7 @@ args = {
 }
 
 
-loader = PTLoaderV1(**args)
+loader = FTLoaderV3(**args)
 
 
 #%%
