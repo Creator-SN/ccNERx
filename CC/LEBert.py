@@ -84,7 +84,7 @@ class BertLayer(nn.Module):
     we modify the module to add word embedding information into the transformer
     """
 
-    def __init__(self, config, has_word_attn=False):
+    def __init__(self, config, has_word_attn=False, has_prompt_features=False):
         super().__init__()
 
         self.chunk_size_feed_forward = config.chunk_size_feed_forward
@@ -111,7 +111,12 @@ class BertLayer(nn.Module):
             self.attn_W.data.normal_(mean=0.0, std=config.initializer_range)
             self.fuse_layernorm = nn.LayerNorm(
                 config.hidden_size, eps=config.layer_norm_eps)
-
+        
+        self.has_prompt_features = has_prompt_features
+        if self.has_prompt_features:
+            self.dropout = nn.Dropout(config.hidden_dropout_prob)
+            self.fuse_layernorm = nn.LayerNorm(
+                            config.hidden_size, eps=config.layer_norm_eps)
         self.intermediate = BertIntermediate(config)
         self.output = BertOutput(config)
 
@@ -121,6 +126,7 @@ class BertLayer(nn.Module):
             attention_mask=None,
             input_word_embeddings=None,
             input_word_mask=None,
+            prompt_features=None,
             head_mask=None,
             encoder_hidden_states=None,
             encoder_attention_mask=None,
@@ -194,6 +200,12 @@ class BertLayer(nn.Module):
 
             layer_output = self.dropout(layer_output)
             layer_output = self.fuse_layernorm(layer_output)
+        
+        if self.has_prompt_features:
+            assert prompt_features is not None
+            layer_output = layer_output + prompt_features
+            layer_output = self.dropout(layer_output)
+            layer_output = self.fuse_layernorm(layer_output)
 
         outputs = (layer_output,) + outputs
         return outputs
@@ -209,13 +221,21 @@ class BertEncoder(nn.Module):
         super().__init__()
         self.config = config
         self.add_layers = config.add_layers
+        self.prompt_layers = config.prompt_layers
 
         total_layers = []
+        add = False
+        prompt = False
         for i in range(config.num_hidden_layers):
             if i in self.add_layers:
-                total_layers.append(BertLayer(config, True))
+                add = True
             else:
-                total_layers.append(BertLayer(config, False))
+                add = False
+            if i in self.prompt_layers:
+                prompt = True
+            else:
+                prompt = False
+            total_layers.append(BertLayer(config, add, prompt))
 
         self.layer = nn.ModuleList(total_layers)
 
@@ -225,6 +245,7 @@ class BertEncoder(nn.Module):
             attention_mask=None,
             input_word_embeddings=None,
             input_word_mask=None,
+            prompt_features=None,
             head_mask=None,
             encoder_hidden_states=None,
             encoder_attention_mask=None,
@@ -256,6 +277,7 @@ class BertEncoder(nn.Module):
                     attention_mask,
                     input_word_embeddings,
                     input_word_mask,
+                    prompt_features,
                     layer_head_mask,
                     encoder_hidden_states,
                     encoder_attention_mask,
@@ -266,6 +288,7 @@ class BertEncoder(nn.Module):
                     attention_mask,
                     input_word_embeddings,
                     input_word_mask,
+                    prompt_features,
                     layer_head_mask,
                     encoder_hidden_states,
                     encoder_attention_mask,
@@ -361,6 +384,7 @@ class WCBertModel(BertPreTrainedModel):
         token_type_ids=None,
         matched_word_embeddings=None,
         matched_word_mask=None,
+        prompt_features=None,
         position_ids=None,
         head_mask=None,
         inputs_embeds=None,
@@ -454,6 +478,7 @@ class WCBertModel(BertPreTrainedModel):
             attention_mask=extended_attention_mask,
             input_word_embeddings=matched_word_embeddings,
             input_word_mask=matched_word_mask,
+            prompt_features=prompt_features,
             head_mask=head_mask,
             encoder_hidden_states=encoder_hidden_states,
             encoder_attention_mask=encoder_extended_attention_mask,

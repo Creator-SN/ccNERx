@@ -106,12 +106,15 @@ class LEBertModel(BertPreTrainedModel):
     ):
         matched_word_embeddings = self.word_embeddings(
             args['matched_word_ids'])
+        if 'prompt_features' not in args:
+            args['prompt_features'] = None
         outputs = self.bert(
             input_ids=args['input_ids'],
             attention_mask=args['attention_mask'],
             token_type_ids=args['token_type_ids'],
             matched_word_embeddings=matched_word_embeddings,
-            matched_word_mask=args['matched_word_mask']
+            matched_word_mask=args['matched_word_mask'],
+            prompt_features=args['prompt_features']
         )
 
         sequence_output = outputs[0]

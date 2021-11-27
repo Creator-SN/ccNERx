@@ -6,8 +6,9 @@ import numpy as np
 from torch.autograd.grad_mode import F
 import torch.nn as nn
 import torch.optim as optim
-from transformers import BertConfig, BertTokenizer, BertModel, get_linear_schedule_with_warmup
+from transformers import BertConfig, BertTokenizer, GPT2LMHeadModel, get_linear_schedule_with_warmup
 from tqdm import tqdm
+from transformers.utils.dummy_pt_objects import GPT2LMHeadModel
 from ICCSupervised.ICCSupervised import ITrainer
 from CC.dataloader import AutoDataLoader
 from CC.analysis import CCAnalysis
@@ -62,6 +63,7 @@ class SimNERTrainer(ITrainer):
         self.num_gpus = args['num_gpus']
         self.output_eval = args['output_eval']
         self.hidden_dim = args['hidden_dim']
+        self.max_seq_len = args['max_seq_len']
         self.dataloader_init(**args)
         self.model_init(**args)
         self.task_name = args['task_name']
@@ -82,8 +84,8 @@ class SimNERTrainer(ITrainer):
 
         self.bert_ner = CCNERModel(**model_args)
         self.model, self.birnncrf = self.bert_ner()
-        self.prompt_model = BertModel.from_pretrained(
-            args['prompt_pretrained_file_name'], config=args['bert_config_file_name'])
+        self.prompt_model = GPT2LMHeadModel.from_pretrained(
+            args['prompt_pretrained_file_name'], config=args['gpt_config_file_name'])
 
     def dataloader_init(self, **args):
         self.dataloader = AutoDataLoader(**args)
@@ -163,30 +165,20 @@ class SimNERTrainer(ITrainer):
                     # it[key] = temp
                     # it[key] = self.cuda(torch.tensor(it[key]))
                     it[key] = self.cuda(it[key])
+                
+                # [batch_size, seq_len * 2, hidden_dim]
+                prompt_outputs = self.prompt_model(input_ids=it['prompt_input_ids'].long(), attention_mask=it['prompt_attention_mask'], output_hidden_states=True)
+                prompt_hidden_states = prompt_outputs.hidden_state
+                prompt_features = prompt_hidden_states[:, self.max_seq_length - 1:-1, :]
 
+                it['prompt_features'] = prompt_features
+                
                 outputs = self.model(**it)
                 hidden_states = outputs['mix_output']
-                # [batch_size, seq_len, lstm_hidden_dim]
-                lstm_outputs, _ = self.birnncrf.lstm_features(
-                    hidden_states, it['input_ids'].gt(0))
-                
-                # [batch_size, seq_len, hidden_dim]
-                prompt_outputs = self.prompt_model(input_ids=it['prompt_input_ids'].long(), attention_mask=it['prompt_attention_mask'])
-                prompt_hidden_states = prompt_outputs.last_hidden_state
-                
-                lstm_outputs = lstm_outputs * it['input_entity_mask'].unsqueeze(-1)
-                label_features = torch.sum(lstm_outputs, dim=1)
 
-                prompt_hidden_states[it['prompt_entity_mask'] == 0] = 0
-                prompt_features = torch.sum(prompt_hidden_states, dim=1)
-
-                fusion = torch.cat([label_features, prompt_features], dim=-1)
-                sim_p, sim_loss = self.birnncrf.fc(fusion, it['positive'].float())
-
-                ner_loss = self.birnncrf.loss(
+                loss = self.birnncrf.loss(
                     hidden_states, it['input_ids'].gt(0), it['labels'])
                 
-                loss = ner_loss + sim_loss
                 loss = loss.mean()
 
                 loss.backward()
@@ -197,22 +189,6 @@ class SimNERTrainer(ITrainer):
 
                 train_loss += loss.data.item()
                 train_count += 1
-
-                sim_pred = sim_p.max(-1)[1]
-
-                b_size = it['positive'].shape[0]
-                p_score = sim_p.max(-1)[0]
-                true_positive = 0
-                positive = 0
-                for i in range(b_size):
-                    if p_score[i] >= 0.8:
-                        if sim_pred[i] == it['positive'][i]:
-                            true_positive += 1
-                        positive += 1
-
-                sim_precision = true_positive / (positive + 1e-11)
-                sim_recall = true_positive / b_size
-                sim_f1 = 2 * sim_precision * sim_recall / (sim_precision + sim_recall + 1e-11)
 
                 pred = self.birnncrf(hidden_states, it['input_ids'].gt(0))[1]
 
@@ -255,7 +231,7 @@ class SimNERTrainer(ITrainer):
                 train_iter.set_description(
                     'Epoch: {}/{} Train'.format(epoch + 1, self.num_epochs))
                 train_iter.set_postfix(train_loss=train_loss / train_count, train_acc=train_acc, train_precision=train_precision,
-                                       train_recall=train_recall, F1=F1, sim_p=sim_precision, sim_r=sim_recall, sim_f1=sim_f1)
+                                       train_recall=train_recall, F1=F1)
             self.analysis.append_train_record({
                 'loss': loss.data.item(),
                 'f1': F1,
@@ -301,49 +277,23 @@ class SimNERTrainer(ITrainer):
                 for key in it.keys():
                     it[key] = self.cuda(it[key])
 
+                # [batch_size, seq_len * 2, hidden_dim]
+                prompt_outputs = self.prompt_model(input_ids=it['prompt_input_ids'].long(), attention_mask=it['prompt_attention_mask'], output_hidden_states=True)
+                prompt_hidden_states = prompt_outputs.hidden_state
+                prompt_features = prompt_hidden_states[:, self.max_seq_length - 1:-1, :]
+
+                it['prompt_features'] = prompt_features
+                
                 outputs = self.model(**it)
                 hidden_states = outputs['mix_output']
-                # [batch_size, seq_len, lstm_hidden_dim]
-                lstm_outputs, _ = self.birnncrf.lstm_features(
-                    hidden_states, it['input_ids'].gt(0))
-                
-                # [batch_size, seq_len, hidden_dim]
-                prompt_outputs = self.prompt_model(input_ids=it['prompt_input_ids'].long(), attention_mask=it['prompt_attention_mask'])
-                prompt_hidden_states = prompt_outputs.last_hidden_state
-                
-                lstm_outputs = lstm_outputs * it['input_entity_mask'].unsqueeze(-1)
-                label_features = torch.sum(lstm_outputs, dim=1)
 
-                prompt_hidden_states[it['prompt_entity_mask'] == 0] = 0
-                prompt_features = torch.sum(prompt_hidden_states, dim=1)
-
-                fusion = torch.cat([label_features, prompt_features], dim=-1)
-                sim_p, sim_loss = self.birnncrf.fc(fusion, it['positive'].float())
-
-                ner_loss = self.birnncrf.loss(
+                loss = self.birnncrf.loss(
                     hidden_states, it['input_ids'].gt(0), it['labels'])
                 
-                loss = ner_loss + sim_loss
                 loss = loss.mean()
 
                 eval_loss += loss.data.item()
                 test_count += 1
-
-                sim_pred = sim_p.max(-1)[1]
-
-                b_size = it['positive'].shape[0]
-                p_score = sim_p.max(-1)[0]
-                true_positive = 0
-                positive = 0
-                for i in range(b_size):
-                    if p_score[i] >= 0.8:
-                        if sim_pred[i] == it['positive'][i]:
-                            true_positive += 1
-                        positive += 1
-
-                sim_precision = true_positive / (positive + 1e-11)
-                sim_recall = true_positive / b_size
-                sim_f1 = 2 * sim_precision * sim_recall / (sim_precision + sim_recall + 1e-11)
 
                 pred = self.birnncrf(hidden_states, it['input_ids'].gt(0))[1]
 
@@ -385,7 +335,7 @@ class SimNERTrainer(ITrainer):
 
                 test_iter.set_description('Eval Result')
                 test_iter.set_postfix(
-                    eval_loss=eval_loss / test_count, eval_acc=test_acc, eval_precision=test_precision, eval_recall=test_recall, F1=F1, sim_p=sim_precision, sim_r=sim_recall, sim_f1=sim_f1)
+                    eval_loss=eval_loss / test_count, eval_acc=test_acc, eval_precision=test_precision, eval_recall=test_recall, F1=F1)
                 #   F1=(2 * test_acc * test_recall) / (test_acc + test_recall + alpha))
             self.analysis.append_eval_record({
                 'loss': loss.data.item(),
