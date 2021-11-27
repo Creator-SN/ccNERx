@@ -22,7 +22,7 @@ from torch import tensor
 class FTLoaderV2(IDataLoader):
     """Fine-Tune Loader Version 2
     feature:
-        entity label embedding
+        positive sample and negative sample
     """
     def __init__(self, **kwargs) -> None:
         KwargsParser(debug=True) \
