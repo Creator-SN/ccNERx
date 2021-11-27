@@ -158,21 +158,11 @@ class PTDataSetV1(Dataset):
         text, labels = obj["text"][:self.max_seq_length-4], obj["label"][:self.max_seq_length-4]
 
         prompt = text[:]
-        entities = get_entities(labels, text)
-        for start, end, label, word in entities:
-            chinese = list(self.tag_rules[label])
-            chinese = chinese[:len(word)]
-            i = 1
-            while len(chinese) < len(word):
-                if i == 0:
-                    i += 1
-                chinese.insert(i, '-')
-                i = (i + 2) % len(chinese)
-            prompt[start:end] = chinese
-
         for index in range(len(prompt)):
-            if labels[index]=="O":
-                prompt[index] = "无"
+            l = labels[index].split("-")[-1]
+            if l!="O":
+                l=f"I-{l}"
+            prompt[index] = self.label_vocab.token2id(l)+1
 
         # [CLS] + text + [SEP] + prompt + [SEP]
         labels = [self.default_tag
