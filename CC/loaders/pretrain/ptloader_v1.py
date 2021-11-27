@@ -159,10 +159,8 @@ class PTDataSetV1(Dataset):
 
         prompt = text[:]
         for index in range(len(prompt)):
-            l = labels[index].split("-")[-1]
-            if l!="O":
-                l=f"I-{l}"
-            prompt[index] = self.label_vocab.token2id(l)+1
+            id = self.label_vocab.token2id(labels[index])
+            prompt[index] = id+1
 
         # [CLS] + text + [SEP] + prompt + [SEP]
         labels = [self.default_tag
