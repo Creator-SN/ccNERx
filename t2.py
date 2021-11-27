@@ -125,8 +125,8 @@ for index in range(10):
 #%%
 choices = ("input_ids","origin_labels","input_labels",
 "labels","matched_label_ids","matched_word_ids","token_type_ids")
-index = 2
-for i in loader.myData[0:1][choices[index]].tolist():
+index = 0
+for i in loader.myData[0:10][choices[index]].tolist():
     if index<3:
         print(loader.tokenizer.decode(i))
     elif index==3:

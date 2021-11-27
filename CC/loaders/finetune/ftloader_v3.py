@@ -213,22 +213,17 @@ class FTDataSetV3(Dataset):
             self.init_dataset()
 
     def convert_ids(self, obj, return_dict: bool = False):
-        text, labels = obj["text"][:self.max_seq_length -
-                                   4], obj["label"][:self.max_seq_length - 4]
+        text, labels = obj["text"][:self.max_seq_length*2 -
+                                   4], obj["label"][:self.max_seq_length*2 - 4]
 
         prompt = text[:]
         for index in range(len(prompt)):
             id = self.label_vocab.token2id(labels[index])
             prompt[index] = id + 1
 
-        # [CLS] + text + [SEP] + prompt + [SEP]
-        labels = [self.default_tag
-                  ] + labels + [self.default_tag] * (1 + len(prompt))
-        labels = labels[:self.max_seq_length - 1] + [self.default_tag]
-
         ids = self.tokenizer.encode_plus(text,
                                          prompt,
-                                         max_length=self.max_seq_length,
+                                         max_length=self.max_seq_length*2,
                                          truncation="only_second",
                                          padding="max_length",
                                          return_tensors="pt")
