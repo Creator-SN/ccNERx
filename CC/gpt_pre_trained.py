@@ -42,7 +42,7 @@ class NERPreTrainer(ITrainer):
         result = self.dataloader()
         self.train_data = result['train_set']
         self.train_iter = result['train_iter']
-        if self.loader_name in ['pt_loader']:
+        if self.loader_name in ['ptloader_v1']:
             self.tag_vocab = result['tag_vocab']
             self.tag_size = self.tag_vocab.__len__()
             self.analysis = CCAnalysis(
