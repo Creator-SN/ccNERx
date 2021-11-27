@@ -10,7 +10,7 @@ from CC.loaders.lex_loader import LXLoader
 from CC.loaders.label_le_loader import LabelLLoader
 from CC.loaders.mlabel_le_loader import MLabelLLoader
 from CC.loaders.finetune.ftloader_v1 import FTLoaderV1
-from CC.loaders.finetune.ftloader_v2 import FTLoaderV2
+from CC.loaders.finetune.ftloader_v3 import FTLoaderV3
 from CC.loaders.pretrain.ptloader_v1 import PTLoaderV1
 from CC.loaders.label_lex_loader import LabelLXLoader
 
@@ -26,7 +26,7 @@ class AutoDataLoader(IDataLoader):
             'labelle_loader': LabelLLoader,
             'm_labelle_loader': MLabelLLoader,
             'ft_loader_v1': FTLoaderV1,
-            'ft_loader_v2': FTLoaderV2,
+            'ft_loader_v3': FTLoaderV3,
             'ptloader_v1': PTLoaderV1,
             'labellex_loader': LabelLXLoader
         }

@@ -8,7 +8,6 @@ import torch.nn as nn
 import torch.optim as optim
 from transformers import BertConfig, BertTokenizer, GPT2LMHeadModel, get_linear_schedule_with_warmup
 from tqdm import tqdm
-from transformers.utils.dummy_pt_objects import GPT2LMHeadModel
 from ICCSupervised.ICCSupervised import ITrainer
 from CC.dataloader import AutoDataLoader
 from CC.analysis import CCAnalysis
@@ -16,7 +15,7 @@ from CC.model import CCNERModel
 from seqeval.metrics import f1_score, precision_score, recall_score, accuracy_score
 
 
-class SimNERTrainer(ITrainer):
+class EnhancedNERTrainer(ITrainer):
 
     def __init__(self, **args):
         '''
@@ -63,7 +62,7 @@ class SimNERTrainer(ITrainer):
         self.num_gpus = args['num_gpus']
         self.output_eval = args['output_eval']
         self.hidden_dim = args['hidden_dim']
-        self.max_seq_len = args['max_seq_len']
+        self.max_seq_length = args['max_seq_length']
         self.dataloader_init(**args)
         self.model_init(**args)
         self.task_name = args['task_name']
@@ -85,7 +84,7 @@ class SimNERTrainer(ITrainer):
         self.bert_ner = CCNERModel(**model_args)
         self.model, self.birnncrf = self.bert_ner()
         self.prompt_model = GPT2LMHeadModel.from_pretrained(
-            args['prompt_pretrained_file_name'], config=args['gpt_config_file_name'])
+            args['prompt_pretrained_file_name'], config=args['prompt_config_file_name'])
 
     def dataloader_init(self, **args):
         self.dataloader = AutoDataLoader(**args)
@@ -93,7 +92,7 @@ class SimNERTrainer(ITrainer):
         self.train_data = result['train_set']
         self.train_iter = result['train_iter']
         
-        if self.loader_name == 'ft_loader_v2':
+        if self.loader_name == 'ft_loader_v3':
             self.vocab_embedding = result['vocab_embedding']
             self.embedding_dim = result['embedding_dim']
             self.tag_vocab = result['tag_vocab']
@@ -167,12 +166,12 @@ class SimNERTrainer(ITrainer):
                     it[key] = self.cuda(it[key])
                 
                 # [batch_size, seq_len * 2, hidden_dim]
-                prompt_outputs = self.prompt_model(input_ids=it['prompt_input_ids'].long(), attention_mask=it['prompt_attention_mask'], output_hidden_states=True)
-                prompt_hidden_states = prompt_outputs.hidden_state
+                prompt_outputs = self.prompt_model(input_ids=it['gpt_input_ids'], attention_mask=it['gpt_attention_mask'], output_hidden_states=True)
+                prompt_hidden_states = prompt_outputs.hidden_states[-1]
                 prompt_features = prompt_hidden_states[:, self.max_seq_length - 1:-1, :]
 
                 it['prompt_features'] = prompt_features
-                
+                print(prompt_features.shape)
                 outputs = self.model(**it)
                 hidden_states = outputs['mix_output']
 
@@ -278,8 +277,8 @@ class SimNERTrainer(ITrainer):
                     it[key] = self.cuda(it[key])
 
                 # [batch_size, seq_len * 2, hidden_dim]
-                prompt_outputs = self.prompt_model(input_ids=it['prompt_input_ids'].long(), attention_mask=it['prompt_attention_mask'], output_hidden_states=True)
-                prompt_hidden_states = prompt_outputs.hidden_state
+                prompt_outputs = self.prompt_model(input_ids=it['gpt_input_ids'], attention_mask=it['gpt_attention_mask'], output_hidden_states=True)
+                prompt_hidden_states = prompt_outputs.hidden_states[-1]
                 prompt_features = prompt_hidden_states[:, self.max_seq_length - 1:-1, :]
 
                 it['prompt_features'] = prompt_features
