@@ -39,17 +39,12 @@ class PTLoaderV1(IDataLoader):
             .add_argument("tag_file", str) \
             .add_argument("bert_vocab_file", str) \
             .add_argument("output_eval", bool, defaultValue=False) \
-            .add_argument("max_scan_num", int, defaultValue=1000000) \
-            .add_argument("add_seq_vocab", bool, defaultValue=False) \
             .add_argument("max_seq_length", int, defaultValue=256) \
-            .add_argument("max_word_num", int, defaultValue=5) \
-            .add_argument("max_label_num",int,defaultValue=5) \
             .add_argument("default_tag", str, defaultValue="O") \
             .add_argument("use_test", bool, defaultValue=False) \
             .add_argument("do_shuffle", bool, defaultValue=False) \
             .add_argument("do_predict", bool, defaultValue=False) \
             .add_argument("task_name", str) \
-            .add_argument("tag_rules", dict) \
             .add_argument("debug", bool, defaultValue=False) \
             .parse(self, **kwargs)
 
@@ -73,8 +68,6 @@ class PTLoaderV1(IDataLoader):
             self.train_file, self.eval_file, self.test_file
         ]
 
-        cache = self.cache.group(self.max_scan_num)
-
         self.tokenizer = BertTokenizer.from_pretrained(self.bert_vocab_file)
 
         self.tag_vocab: Vocab = Vocab().from_files([self.tag_file],
@@ -88,28 +81,26 @@ class PTLoaderV1(IDataLoader):
             self.myData_test = PTDataSetV1(self.data_files[2],
                                            tokenizer=self.tokenizer,
                                            max_seq_length=self.max_seq_length,
-                                           tag_rules=self.tag_rules,
-                                           label_vocab= self.tag_vocab,
+                                           label_vocab=self.tag_vocab,
                                            default_tag=self.default_tag)
             self.dataiter_test = DataLoader(self.myData_test,
                                             batch_size=test_batch_size)
         else:
             self.myData = PTDataSetV1(self.data_files[0],
-                                           tokenizer=self.tokenizer,
-                                           max_seq_length=self.max_seq_length,
-                                           tag_rules=self.tag_rules,
-                                           label_vocab= self.tag_vocab,
-                                           default_tag=self.default_tag,
-                                           do_shuffle=True)
+                                      tokenizer=self.tokenizer,
+                                      max_seq_length=self.max_seq_length,
+                                      label_vocab=self.tag_vocab,
+                                      default_tag=self.default_tag,
+                                      do_shuffle=True)
 
             self.dataiter = DataLoader(self.myData, batch_size=batch_size)
             if self.output_eval:
-                self.myData_eval = PTDataSetV1(self.data_files[1],
-                                           tokenizer=self.tokenizer,
-                                           max_seq_length=self.max_seq_length,
-                                           tag_rules=self.tag_rules,
-                                           label_vocab= self.tag_vocab,
-                                           default_tag=self.default_tag)
+                self.myData_eval = PTDataSetV1(
+                    self.data_files[1],
+                    tokenizer=self.tokenizer,
+                    max_seq_length=self.max_seq_length,
+                    label_vocab=self.tag_vocab,
+                    default_tag=self.default_tag)
                 self.dataiter_eval = DataLoader(self.myData_eval,
                                                 batch_size=eval_batch_size)
 
@@ -141,7 +132,6 @@ class PTDataSetV1(Dataset):
                  file: str,
                  tokenizer,
                  max_seq_length: int,
-                 tag_rules,
                  label_vocab,
                  default_tag: str = "O",
                  do_shuffle: bool = False,
@@ -155,12 +145,13 @@ class PTDataSetV1(Dataset):
             self.init_dataset()
 
     def convert_ids(self, obj, return_dict: bool = False):
-        text, labels = obj["text"][:self.max_seq_length-4], obj["label"][:self.max_seq_length-4]
+        text, labels = obj["text"][:self.max_seq_length -
+                                   4], obj["label"][:self.max_seq_length - 4]
 
         prompt = text[:]
         for index in range(len(prompt)):
             id = self.label_vocab.token2id(labels[index])
-            prompt[index] = id+1
+            prompt[index] = id + 1
 
         # [CLS] + text + [SEP] + prompt + [SEP]
         labels = [self.default_tag
@@ -174,6 +165,12 @@ class PTDataSetV1(Dataset):
                                          padding="max_length",
                                          return_tensors="pt")
 
+        input_labels = torch.clone(ids["input_ids"][0])
+
+        for i in range(ids["token_type_ids"][0].shape[0]):
+            if ids["token_type_ids"][0][i] == 0:
+                input_labels[i] = -100
+
         # convert to ids
 
         label_ids = self.label_vocab.token2id(labels)
@@ -185,39 +182,34 @@ class PTDataSetV1(Dataset):
                 "input_ids": ids["input_ids"][0],
                 "token_type_ids": ids["token_type_ids"][0],
                 "attention_mask": ids["attention_mask"][0],
-                "labels": labels,
+                "labels_ids": labels,
             }
 
         return ids["input_ids"][0], ids["token_type_ids"][0], ids[
-            "attention_mask"][0], labels
+            "attention_mask"][0], labels, input_labels
 
     def init_dataset(self):
         reader = FileReader(self.file)
         line_total = reader.line_size()
         self.input_token_ids = []
-        self.input_entitiy_mask = []
         self.token_type_ids = []
         self.attention_mask = []
-        self.matched_word_ids = []
-        self.matched_word_mask = []
-        self.prompt_input_ids = []
-        self.prompt_attention_mask = []
-        self.prompt_entity_mask = []
-        self.positive = []
         self.labels = []
+        self.input_labels = []
 
         for line in tqdm(reader.line_iter(),
                          desc=f"load dataset from {self.file}",
                          total=line_total):
             line = line.strip()
             data: Dict[str, List[Any]] = json.loads(line)
-            if len(data["text"])>0:
-                input_token_ids, token_type_ids, attention_mask, labels = self.convert_ids(
+            if len(data["text"]) > 0:
+                input_token_ids, token_type_ids, attention_mask, labels, input_labels = self.convert_ids(
                     data)
                 self.input_token_ids.append(input_token_ids)
                 self.token_type_ids.append(token_type_ids)
                 self.attention_mask.append(attention_mask)
                 self.labels.append(labels)
+                self.input_labels.append(input_labels)
 
         self.size = len(self.input_token_ids)
         self.indexes = [i for i in range(self.size)]
@@ -235,14 +227,17 @@ class PTDataSetV1(Dataset):
                 'token_type_ids':
                 torch.stack([self.token_type_ids[i] for i in idx]),
                 'labels':
-                torch.stack([self.labels[i] for i in idx])
+                torch.stack([self.labels[i] for i in idx]),
+                "input_labels":
+                torch.stack([self.input_labels[i] for i in idx])
             }
         else:
             return {
                 'input_ids': self.input_token_ids[idx],
                 'attention_mask': self.attention_mask[idx],
                 'token_type_ids': self.token_type_ids[idx],
-                'labels': self.labels[idx]
+                'labels': self.labels[idx],
+                "input_labels": self.input_labels[idx]
             }
 
     def __len__(self):
