@@ -22,7 +22,7 @@ class NERPreTrainer(ITrainer):
         self.loader_name = 'lex_loader'
         if "loader_name" in args:
             self.loader_name = args["loader_name"]
-        self.model_name = 'Bert'
+        self.model_name = 'GPT-2'
         if "model_name" in args:
             self.model_name = args["model_name"]
 
@@ -33,7 +33,7 @@ class NERPreTrainer(ITrainer):
         self.task_name = args['task_name']
 
     def model_init(self, **args):
-        config = GPT2Config.from_json_file(args['bert_config_file_name'])
+        config = GPT2Config.from_json_file(args['gpt_config_file_name'])
         self.model = GPT2LMHeadModel.from_pretrained(
             args['pretrained_file_name'], config=config)
 
@@ -42,17 +42,11 @@ class NERPreTrainer(ITrainer):
         result = self.dataloader()
         self.train_data = result['train_set']
         self.train_iter = result['train_iter']
-        if self.loader_name in ['lex_loader', 'labellex_loader']:
-            self.vocab_embedding = result['vocab_embedding']
-            self.embedding_dim = result['embedding_dim']
+        if self.loader_name in ['pt_loader']:
             self.tag_vocab = result['tag_vocab']
             self.tag_size = self.tag_vocab.__len__()
             self.analysis = CCAnalysis(
                 self.tag_vocab.token2id, self.tag_vocab.id2token)
-        elif self.loader_name == 'cnx_loader':
-            self.dm = result['dm']
-            self.tag_size = len(self.dm.tag_to_idx)
-            self.analysis = CCAnalysis(self.dm.tagToIdx, self.dm.idxToTag)
 
     def train(self, lr=1e-4):
 
@@ -80,7 +74,7 @@ class NERPreTrainer(ITrainer):
                     it[key] = self.cuda(it[key])
 
                 outputs = self.model(input_ids=it['input_ids'], attention_mask=it['attention_mask'],
-                                     token_type_ids=it['token_type_ids'], labels=it['origin_labels'])
+                                     token_type_ids=it['token_type_ids'], labels=it['labels'])
                 loss = outputs.loss
                 loss = loss.mean()
 
