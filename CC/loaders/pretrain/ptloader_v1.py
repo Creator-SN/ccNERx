@@ -1,0 +1,249 @@
+from functools import lru_cache
+import json
+from typing import Any, Dict, List, Union
+import torch
+from torch.utils.data import DataLoader, Dataset
+from tqdm import tqdm
+from transformers.utils.dummy_pt_objects import BertModel
+from CC.loaders.utils.cache_manager import FileCache
+from CC.loaders.utils.embedding import VocabEmbedding
+from CC.loaders.utils.label import get_entities
+from CC.loaders.utils.lexicon_factory import TrieFactory
+from CC.loaders.utils.lexicon_tree import Trie
+from CC.loaders.utils.parser import KwargsParser
+from CC.loaders.utils.reader import FileReader
+from CC.loaders.utils.vocab import Vocab
+from transformers import BertTokenizer, BertModel
+from ICCSupervised.ICCSupervised import IDataLoader
+import random
+from torch import tensor
+
+
+class PTLoaderV1(IDataLoader):
+    """ Pretrain Loader Version 1
+    feature:
+        positive sample and negative sample, others sample
+        GPT2 loader
+
+    """
+    def __init__(self, **kwargs) -> None:
+        KwargsParser(debug=True) \
+            .add_argument("batch_size", int, defaultValue=4) \
+            .add_argument("eval_batch_size", int, defaultValue=16) \
+            .add_argument("test_batch_size", int, defaultValue=16) \
+            .add_argument("word_embedding_file", str) \
+            .add_argument("word_vocab_file", str) \
+            .add_argument("train_file", str) \
+            .add_argument("eval_file", str) \
+            .add_argument("test_file", str) \
+            .add_argument("tag_file", str) \
+            .add_argument("bert_vocab_file", str) \
+            .add_argument("output_eval", bool, defaultValue=False) \
+            .add_argument("max_scan_num", int, defaultValue=1000000) \
+            .add_argument("add_seq_vocab", bool, defaultValue=False) \
+            .add_argument("max_seq_length", int, defaultValue=256) \
+            .add_argument("max_word_num", int, defaultValue=5) \
+            .add_argument("max_label_num",int,defaultValue=5) \
+            .add_argument("default_tag", str, defaultValue="O") \
+            .add_argument("use_test", bool, defaultValue=False) \
+            .add_argument("do_shuffle", bool, defaultValue=False) \
+            .add_argument("do_predict", bool, defaultValue=False) \
+            .add_argument("task_name", str) \
+            .add_argument("tag_rules", dict) \
+            .add_argument("debug", bool, defaultValue=False) \
+            .parse(self, **kwargs)
+
+        # get cache_key
+        files = [
+            self.train_file, self.eval_file, self.test_file, self.tag_file
+        ]
+        self.cache_key = [
+            FileReader(file).etag() if file is not None else "None"
+            for file in files
+        ]
+        self.cache_key = "_".join(self.cache_key)
+        self.cache = FileCache(f"./temp/{self.cache_key}")
+
+        self.read_data_set()
+        self.process_data(self.batch_size, self.eval_batch_size,
+                          self.test_batch_size)
+
+    def read_data_set(self):
+        self.data_files: List[str] = [
+            self.train_file, self.eval_file, self.test_file
+        ]
+
+        cache = self.cache.group(self.max_scan_num)
+
+        self.tokenizer = BertTokenizer.from_pretrained(self.bert_vocab_file)
+
+        self.tag_vocab: Vocab = Vocab().from_files([self.tag_file],
+                                                   is_word=False)
+
+    def process_data(self,
+                     batch_size: int,
+                     eval_batch_size: int = None,
+                     test_batch_size: int = None):
+        if self.use_test:
+            self.myData_test = PTDataSetV1(self.data_files[2],
+                                           tokenizer=self.tokenizer,
+                                           max_seq_length=self.max_seq_length,
+                                           tag_rules=self.tag_rules,
+                                           label_vocab= self.tag_vocab,
+                                           default_tag=self.default_tag)
+            self.dataiter_test = DataLoader(self.myData_test,
+                                            batch_size=test_batch_size)
+        else:
+            self.myData = PTDataSetV1(self.data_files[0],
+                                           tokenizer=self.tokenizer,
+                                           max_seq_length=self.max_seq_length,
+                                           tag_rules=self.tag_rules,
+                                           label_vocab= self.tag_vocab,
+                                           default_tag=self.default_tag,
+                                           do_shuffle=True)
+
+            self.dataiter = DataLoader(self.myData, batch_size=batch_size)
+            if self.output_eval:
+                self.myData_eval = PTDataSetV1(self.data_files[1],
+                                           tokenizer=self.tokenizer,
+                                           max_seq_length=self.max_seq_length,
+                                           tag_rules=self.tag_rules,
+                                           label_vocab= self.tag_vocab,
+                                           default_tag=self.default_tag)
+                self.dataiter_eval = DataLoader(self.myData_eval,
+                                                batch_size=eval_batch_size)
+
+    def __call__(self):
+        if self.use_test:
+            return {
+                'test_set': self.myData_test,
+                'test_iter': self.dataiter_test,
+                'tag_vocab': self.tag_vocab
+            }
+        if self.output_eval:
+            return {
+                'train_set': self.myData,
+                'train_iter': self.dataiter,
+                'eval_set': self.myData_eval,
+                'eval_iter': self.dataiter_eval,
+                'tag_vocab': self.tag_vocab
+            }
+        else:
+            return {
+                'train_set': self.myData,
+                'train_iter': self.dataiter,
+                'tag_vocab': self.tag_vocab
+            }
+
+
+class PTDataSetV1(Dataset):
+    def __init__(self,
+                 file: str,
+                 tokenizer,
+                 max_seq_length: int,
+                 tag_rules,
+                 label_vocab,
+                 default_tag: str = "O",
+                 do_shuffle: bool = False,
+                 do_predict: bool = False,
+                 **kwargs) -> None:
+        params = locals()
+        for key in params:
+            if key != "kwargs":
+                setattr(self, key, params[key])
+        if not self.do_predict:
+            self.init_dataset()
+
+    def convert_ids(self, obj, return_dict: bool = False):
+        text, labels = obj["text"][:self.max_seq_length-4], obj["label"][:self.max_seq_length-4]
+
+        prompt = text[:]
+        for index in range(len(prompt)):
+            id = self.label_vocab.token2id(labels[index])
+            prompt[index] = id+1
+
+        # [CLS] + text + [SEP] + prompt + [SEP]
+        labels = [self.default_tag
+                  ] + labels + [self.default_tag] * (1 + len(prompt))
+        labels = labels[:self.max_seq_length - 1] + [self.default_tag]
+
+        ids = self.tokenizer.encode_plus(text,
+                                         prompt,
+                                         max_length=self.max_seq_length,
+                                         truncation="only_second",
+                                         padding="max_length",
+                                         return_tensors="pt")
+
+        # convert to ids
+
+        label_ids = self.label_vocab.token2id(labels)
+        labels = torch.zeros(self.max_seq_length, dtype=torch.int)
+        labels[:len(label_ids)] = tensor(label_ids).int()
+
+        if return_dict:
+            return {
+                "input_ids": ids["input_ids"][0],
+                "token_type_ids": ids["token_type_ids"][0],
+                "attention_mask": ids["attention_mask"][0],
+                "labels": labels,
+            }
+
+        return ids["input_ids"][0], ids["token_type_ids"][0], ids[
+            "attention_mask"][0], labels
+
+    def init_dataset(self):
+        reader = FileReader(self.file)
+        line_total = reader.line_size()
+        self.input_token_ids = []
+        self.input_entitiy_mask = []
+        self.token_type_ids = []
+        self.attention_mask = []
+        self.matched_word_ids = []
+        self.matched_word_mask = []
+        self.prompt_input_ids = []
+        self.prompt_attention_mask = []
+        self.prompt_entity_mask = []
+        self.positive = []
+        self.labels = []
+
+        for line in tqdm(reader.line_iter(),
+                         desc=f"load dataset from {self.file}",
+                         total=line_total):
+            line = line.strip()
+            data: Dict[str, List[Any]] = json.loads(line)
+            if len(data["text"])>0:
+                input_token_ids, token_type_ids, attention_mask, labels = self.convert_ids(
+                    data)
+                self.input_token_ids.append(input_token_ids)
+                self.token_type_ids.append(token_type_ids)
+                self.attention_mask.append(attention_mask)
+                self.labels.append(labels)
+
+        self.size = len(self.input_token_ids)
+        self.indexes = [i for i in range(self.size)]
+        if self.do_shuffle:
+            random.shuffle(self.indexes)
+
+    def __getitem__(self, index):
+        idx = self.indexes[index]
+        if isinstance(idx, list):
+            return {
+                'input_ids':
+                torch.stack([self.input_token_ids[i] for i in idx]),
+                'attention_mask':
+                torch.stack([self.attention_mask[i] for i in idx]),
+                'token_type_ids':
+                torch.stack([self.token_type_ids[i] for i in idx]),
+                'labels':
+                torch.stack([self.labels[i] for i in idx])
+            }
+        else:
+            return {
+                'input_ids': self.input_token_ids[idx],
+                'attention_mask': self.attention_mask[idx],
+                'token_type_ids': self.token_type_ids[idx],
+                'labels': self.labels[idx]
+            }
+
+    def __len__(self):
+        return self.size

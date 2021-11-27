@@ -74,7 +74,7 @@ args = {
 }
 
 
-loader = FTLoaderV2(**args)
+loader = PTLoaderV1(**args)
 
 
 #%%
@@ -124,8 +124,8 @@ for index in range(10):
 
 #%%
 choices = ("input_ids","origin_labels","input_labels","labels","matched_label_ids","matched_word_ids")
-index = 4
-for i in loader.myData[0:1][choices[index]].tolist():
+index = 0
+for i in loader.myData[0:100][choices[index]].tolist():
     if index<3:
         print(loader.tokenizer.decode(i))
     elif index==3:
