@@ -7,7 +7,7 @@ args = {
     'bert_config_file_name': './model/chinese_wwm_ext/config.json',
     'bert_pretrain_path': './model/chinese_wwm_ext/',
     'hidden_dim': 300,
-    'max_seq_length': 150,
+    'max_seq_length': 5,
     'max_scan_num': 1000000,
     'train_file': './data/weibo/train.json',
     'eval_file': './data/weibo/dev.json',
@@ -123,10 +123,13 @@ for index in range(10):
     print(loader.tokenizer.decode(loader.myData[index]["input_ids"]))
 
 #%%
+for i in loader.myData[0:1]["gpt_input_ids"].tolist():
+    print(i)
+#%%
 choices = ("input_ids","origin_labels","input_labels",
-"labels","matched_label_ids","matched_word_ids","token_type_ids")
-index = 2
-for i in loader.myData[0:1][choices[index]].tolist():
+"labels","matched_label_ids","matched_word_ids","token_type_ids","gpt_input_ids")
+index = 6
+for i in loader.myData[0:10][choices[index]].tolist():
     if index<3:
         print(loader.tokenizer.decode(i))
     elif index==3:
@@ -137,6 +140,7 @@ for i in loader.myData[0:1][choices[index]].tolist():
         print(loader.word_vocab.id2token(i))
     else:
         print(i)
+
 
 
 #%%

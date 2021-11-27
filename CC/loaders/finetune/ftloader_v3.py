@@ -2,6 +2,7 @@ from functools import lru_cache
 import json
 from typing import Any, Dict, List, Union
 import torch
+from torch._C import dtype
 from torch.utils.data import DataLoader, Dataset
 from tqdm import tqdm
 from transformers.utils.dummy_pt_objects import BertModel
@@ -212,42 +213,46 @@ class FTDataSetV3(Dataset):
         if not self.do_predict:
             self.init_dataset()
 
-    def convert_ids(self, obj, return_dict: bool = False):
+    def convert_ids(self, obj):
         text, labels = obj["text"][:self.max_seq_length -
-                                   4], obj["label"][:self.max_seq_length - 4]
+                                   2], obj["label"][:self.max_seq_length - 2]
 
         prompt = text[:]
         for index in range(len(prompt)):
             id = self.label_vocab.token2id(labels[index])
-            prompt[index] = id + 1
+            prompt[index] = f"[unused{id + 1}]"
 
-        # [CLS] + text + [SEP] + prompt + [SEP]
-        labels = [self.default_tag
-                  ] + labels + [self.default_tag] * (1 + len(prompt))
-        labels = labels[:self.max_seq_length - 1] + [self.default_tag]
+        input_ids = torch.zeros(self.max_seq_length * 2, dtype=torch.int)
+        attention_mask = torch.zeros(self.max_seq_length * 2, dtype=torch.int)
+        token_type_ids = torch.zeros(self.max_seq_length * 2, dtype=torch.int)
 
-        ids = self.tokenizer.encode_plus(text,
-                                         prompt,
-                                         max_length=self.max_seq_length,
-                                         truncation="only_second",
-                                         padding="max_length",
-                                         return_tensors="pt")
+        text = ["[CLS]"] + text + ["[PAD]"] * (self.max_seq_length - 2 -
+                                               len(text)) + ["[SEP]"]
+        input_ids[:len(text)] = torch.tensor(
+            self.tokenizer.convert_tokens_to_ids(text)).int()
+        input_ids[len(text):len(text) + len(prompt)] = torch.tensor(
+            self.tokenizer.convert_tokens_to_ids(prompt)).int()
+        attention_mask[len(text) + len(prompt):] = 1
+        token_type_ids[len(text):len(text) + len(prompt)] = 1
 
-        input_labels = torch.clone(ids["input_ids"][0])
+        # ids = self.tokenizer.encode_plus(text,
+        #                                  prompt,
+        #                                  max_length=self.max_seq_length,
+        #                                  truncation="only_second",
+        #                                  padding="max_length",
+        #                                  return_tensors="pt")
 
-        for i in range(ids["token_type_ids"][0].shape[0]):
-            if ids["token_type_ids"][0][i] == 0:
+        input_labels = torch.clone(input_ids)
+
+        for i in range(token_type_ids.shape[0]):
+            if token_type_ids[i] == 0:
                 input_labels[i] = -100
 
-        if return_dict:
-            return {
-                "input_ids": ids["input_ids"][0],
-                "token_type_ids": ids["token_type_ids"][0],
-                "attention_mask": ids["attention_mask"][0],
-            }
+        for i in range(len(text) - 1, len(text) + len(prompt) - 1):
+            input_labels[i] = input_labels[i + 1]
+        input_labels[len(text) + len(prompt) - 1] = -100
 
-        return ids["input_ids"][0], ids["token_type_ids"][0], ids[
-            "attention_mask"][0], input_labels
+        return input_ids, token_type_ids, attention_mask, input_labels
 
     def convert_embedding(self, obj, return_dict: bool = False):
         if "text" not in obj:
@@ -376,9 +381,9 @@ class FTDataSetV3(Dataset):
                 'matched_word_mask': self.matched_word_mask[idx],
                 'labels': self.labels[idx],
                 'gpt_input_ids': self.gpt_input_ids[idx],
-                'gpt_attention_mask':self.gpt_attention_mask[idx],
-                'gpt_token_type_ids':self.gpt_token_type_ids[idx],
-                'gpt_labels':self.gpt_labels[idx]
+                'gpt_attention_mask': self.gpt_attention_mask[idx],
+                'gpt_token_type_ids': self.gpt_token_type_ids[idx],
+                'gpt_labels': self.gpt_labels[idx]
             }
 
     def __len__(self):
