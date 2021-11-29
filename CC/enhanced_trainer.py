@@ -171,7 +171,7 @@ class EnhancedNERTrainer(ITrainer):
                 prompt_features = prompt_hidden_states[:, self.max_seq_length - 1:-1, :]
 
                 it['prompt_features'] = prompt_features
-                print(prompt_features.shape)
+                
                 outputs = self.model(**it)
                 hidden_states = outputs['mix_output']
 
