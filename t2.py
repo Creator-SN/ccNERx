@@ -123,8 +123,9 @@ for index in range(10):
     print(loader.tokenizer.decode(loader.myData[index]["input_ids"]))
 
 #%%
-for i in loader.myData[0:5]["input_ids"].tolist():
-    print(loader.tokenizer.decode(i))
+for i in loader.myData[0:1]["input_labels"].tolist():
+    # print(loader.tokenizer.decode(i))
+    print(i)
 #%%
 choices = ("input_ids","origin_labels","input_labels",
 "labels","matched_label_ids","matched_word_ids","token_type_ids","gpt_input_ids")
