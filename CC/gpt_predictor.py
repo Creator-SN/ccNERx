@@ -48,13 +48,7 @@ class Predictor(IPredict):
         self.model_cuda = False
 
     def data_process(self, *X):
-        src = ''
-        for item in X:
-            src = src + self.tokenizer.sep_token + item if src != '' else item
-        T = self.tokenizer(src,
-                           add_special_tokens=True,
-                           max_length=self.padding_length,
-                           truncation=True)
+        T = self.tokenizer(*X, add_special_tokens=True, padding='max_length', max_length=self.padding_length, truncation=True)
         input_ids = torch.tensor(T['input_ids'])
         attn_mask = torch.tensor(T['attention_mask'])
 
