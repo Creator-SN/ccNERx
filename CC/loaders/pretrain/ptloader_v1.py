@@ -157,8 +157,8 @@ class PTDataSetV1(Dataset):
         attention_mask = torch.zeros(self.max_seq_length * 2, dtype=torch.int)
         token_type_ids = torch.zeros(self.max_seq_length * 2, dtype=torch.int)
 
-        text = ["[CLS]"] + text + ["[PAD]"] * (self.max_seq_length - 2 -
-                                               len(text)) + ["[SEP]"]
+        text = ["[CLS]"] + ["[PAD]"] * (self.max_seq_length - 2 -
+                                               len(text)) + text  + ["[SEP]"]
         input_ids[:len(text)] = torch.tensor(
             self.tokenizer.convert_tokens_to_ids(text)).int()
         input_ids[len(text):len(text) + len(prompt)] = torch.tensor(
