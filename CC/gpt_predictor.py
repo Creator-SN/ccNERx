@@ -205,6 +205,46 @@ class Predictor(IPredict):
                         it["attention_mask"][i][idx] = 1
                 yield r.logits.cpu(), it["input_ids"].tolist()
 
+    def predict_ccner_x(self, input_str=None, input_dict=None):
+        '''
+        Only for CCNERX
+        :param input_str: can be a str or a list of str.
+        :param input_dict: the tokenized dict.
+        '''
+        if input_str is not None:
+            it = self.tokenizer(input_str,
+                                padding="max_length",
+                                add_special_tokens=True,
+                                max_length=self.padding_length,
+                                truncation=True,
+                                return_tensors="pt")
+        else:
+            it = input_dict
+        for key in it.keys():
+            it[key] = self.cuda(it[key])
+        max_length = self.padding_length * 2
+        with torch.no_grad():
+            while it['input_ids'].shape[1] < max_length:
+                r = self.model(**it)
+                logits = r.logits[:, -1]
+                filtered_logits = self.top_k_top_p_filtering(logits, 8, 0.5)
+
+                next_tokens = torch.multinomial(torch.softmax(filtered_logits,
+                                                            dim=-1),
+                                            num_samples=1)
+                next_tokens.cuda()
+                it['input_ids'] = torch.cat(
+                    (it['input_ids'], next_tokens), dim=1)
+                if 'attention_mask' in it.keys():
+                    it['attention_mask'] = torch.cat(
+                        (it['attention_mask'], next_tokens.gt(self.tokenizer.pad_token_id)),
+                        dim=1)
+                if 'token_type_ids' in it.keys():
+                    it['token_type_ids'] = torch.cat(
+                        (it['token_type_ids'], (next_tokens != -999).long()),
+                        dim=1)
+                yield r.logits.cpu(), it["input_ids"].tolist()
+
     def cuda(self, inputX):
         if type(inputX) == tuple:
             if torch.cuda.is_available():
