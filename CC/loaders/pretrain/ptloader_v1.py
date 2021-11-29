@@ -144,49 +144,46 @@ class PTDataSetV1(Dataset):
         if not self.do_predict:
             self.init_dataset()
 
-    def convert_ids(self, obj, return_dict: bool = False):
+    def convert_ids(self, obj):
         text, labels = obj["text"][:self.max_seq_length -
-                                   4], obj["label"][:self.max_seq_length - 4]
+                                   2], obj["label"][:self.max_seq_length - 2]
 
         prompt = text[:]
         for index in range(len(prompt)):
             id = self.label_vocab.token2id(labels[index])
-            prompt[index] = id + 1
+            prompt[index] = f"[unused{id + 1}]"
 
-        # [CLS] + text + [SEP] + prompt + [SEP]
-        labels = [self.default_tag
-                  ] + labels + [self.default_tag] * (1 + len(prompt))
-        labels = labels[:self.max_seq_length - 1] + [self.default_tag]
+        input_ids = torch.zeros(self.max_seq_length * 2, dtype=torch.int)
+        attention_mask = torch.zeros(self.max_seq_length * 2, dtype=torch.int)
+        token_type_ids = torch.zeros(self.max_seq_length * 2, dtype=torch.int)
 
-        ids = self.tokenizer.encode_plus(text,
-                                         prompt,
-                                         max_length=self.max_seq_length,
-                                         truncation="only_second",
-                                         padding="max_length",
-                                         return_tensors="pt")
+        text = ["[CLS]"] + text + ["[PAD]"] * (self.max_seq_length - 2 -
+                                               len(text)) + ["[SEP]"]
+        input_ids[:len(text)] = torch.tensor(
+            self.tokenizer.convert_tokens_to_ids(text)).int()
+        input_ids[len(text):len(text) + len(prompt)] = torch.tensor(
+            self.tokenizer.convert_tokens_to_ids(prompt)).int()
+        attention_mask[len(text) + len(prompt):] = 1
+        token_type_ids[len(text):len(text) + len(prompt)] = 1
 
-        input_labels = torch.clone(ids["input_ids"][0])
+        # ids = self.tokenizer.encode_plus(text,
+        #                                  prompt,
+        #                                  max_length=self.max_seq_length,
+        #                                  truncation="only_second",
+        #                                  padding="max_length",
+        #                                  return_tensors="pt")
 
-        for i in range(ids["token_type_ids"][0].shape[0]):
-            if ids["token_type_ids"][0][i] == 0:
+        input_labels = torch.clone(input_ids)
+
+        for i in range(token_type_ids.shape[0]):
+            if token_type_ids[i] == 0:
                 input_labels[i] = -100
 
-        # convert to ids
+        for i in range(len(text) - 1, len(text) + len(prompt) - 1):
+            input_labels[i] = input_labels[i + 1]
+        input_labels[len(text) + len(prompt) - 1] = -100
 
-        label_ids = self.label_vocab.token2id(labels)
-        labels = torch.zeros(self.max_seq_length, dtype=torch.int)
-        labels[:len(label_ids)] = tensor(label_ids).int()
-
-        if return_dict:
-            return {
-                "input_ids": ids["input_ids"][0],
-                "token_type_ids": ids["token_type_ids"][0],
-                "attention_mask": ids["attention_mask"][0],
-                "labels_ids": labels,
-            }
-
-        return ids["input_ids"][0], ids["token_type_ids"][0], ids[
-            "attention_mask"][0], labels, input_labels
+        return input_ids, token_type_ids, attention_mask, input_labels
 
     def init_dataset(self):
         reader = FileReader(self.file)
@@ -194,7 +191,6 @@ class PTDataSetV1(Dataset):
         self.input_token_ids = []
         self.token_type_ids = []
         self.attention_mask = []
-        self.labels = []
         self.input_labels = []
 
         for line in tqdm(reader.line_iter(),
@@ -203,12 +199,11 @@ class PTDataSetV1(Dataset):
             line = line.strip()
             data: Dict[str, List[Any]] = json.loads(line)
             if len(data["text"]) > 0:
-                input_token_ids, token_type_ids, attention_mask, labels, input_labels = self.convert_ids(
+                input_token_ids, token_type_ids, attention_mask, input_labels = self.convert_ids(
                     data)
                 self.input_token_ids.append(input_token_ids)
                 self.token_type_ids.append(token_type_ids)
                 self.attention_mask.append(attention_mask)
-                self.labels.append(labels)
                 self.input_labels.append(input_labels)
 
         self.size = len(self.input_token_ids)
@@ -226,8 +221,6 @@ class PTDataSetV1(Dataset):
                 torch.stack([self.attention_mask[i] for i in idx]),
                 'token_type_ids':
                 torch.stack([self.token_type_ids[i] for i in idx]),
-                'labels':
-                torch.stack([self.labels[i] for i in idx]),
                 "input_labels":
                 torch.stack([self.input_labels[i] for i in idx])
             }
@@ -236,7 +229,6 @@ class PTDataSetV1(Dataset):
                 'input_ids': self.input_token_ids[idx],
                 'attention_mask': self.attention_mask[idx],
                 'token_type_ids': self.token_type_ids[idx],
-                'labels': self.labels[idx],
                 "input_labels": self.input_labels[idx]
             }
 
