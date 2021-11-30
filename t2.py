@@ -123,7 +123,7 @@ for index in range(10):
     print(loader.tokenizer.decode(loader.myData[index]["input_ids"]))
 
 #%%
-for i in loader.myData[0:1]["input_labels"].tolist():
+for i in loader.myData[0:1]["token_type_ids"].tolist():
     # print(loader.tokenizer.decode(i))
     print(i)
 #%%
