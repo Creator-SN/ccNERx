@@ -162,7 +162,7 @@ class PTDataSetV1(Dataset):
             self.tokenizer.convert_tokens_to_ids(text)).int()
         input_labels[:len(prompt)] = torch.tensor(
             self.tokenizer.convert_tokens_to_ids(prompt)).int()
-        attention_mask[:len(text) + len(prompt)] = 1
+        attention_mask[:len(text)] = 1
 
         # token_type_ids[len(text):] = 1
 
