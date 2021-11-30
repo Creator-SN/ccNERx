@@ -74,7 +74,12 @@ args = {
 }
 
 
-loader = PTLoaderV1(**args)
+loader = PTLoaderV2(**args)
+
+#%%
+for i in loader.myData[0:10]["origin_labels"]:
+    print(loader.tokenizer.decode(i))
+    # print(i)
 
 
 #%%
@@ -122,10 +127,7 @@ for index in range(10):
     print(loader.tokenizer.decode(data))
     print(loader.tokenizer.decode(loader.myData[index]["input_ids"]))
 
-#%%
-for i in loader.myData[0:1]["input_labels"].tolist():
-    print(loader.tokenizer.decode(i))
-    # print(i)
+
 #%%
 choices = ("input_ids","origin_labels","input_labels",
 "labels","matched_label_ids","matched_word_ids","token_type_ids","gpt_input_ids")
