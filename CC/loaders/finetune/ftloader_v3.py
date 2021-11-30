@@ -222,19 +222,18 @@ class FTDataSetV3(Dataset):
             id = self.label_vocab.token2id(labels[index])
             prompt[index] = f"[unused{id + 1}]"
 
-        input_ids = torch.zeros(self.max_seq_length * 2, dtype=torch.int)
-        attention_mask = torch.zeros(self.max_seq_length * 2, dtype=torch.int)
-        token_type_ids = torch.zeros(self.max_seq_length * 2, dtype=torch.int)
-        padding = len(text)+1
-        text = ["[CLS]"] + text  + ["[PAD]"] * (self.max_seq_length - 2 -
-                                               len(text)) +  ["[SEP]"]
+        input_ids = torch.zeros(self.max_seq_length, dtype=torch.int)
+        attention_mask = torch.zeros(self.max_seq_length, dtype=torch.int)
+        token_type_ids = torch.zeros(self.max_seq_length, dtype=torch.int)
+        input_labels =  torch.zeros(self.max_seq_length, dtype=torch.int)
+        text = ["[CLS]"] + text + ["[SEP]"]
         input_ids[:len(text)] = torch.tensor(
             self.tokenizer.convert_tokens_to_ids(text)).int()
-        input_ids[len(text):len(text) + len(prompt)] = torch.tensor(
+        input_labels[:len(prompt)] = torch.tensor(
             self.tokenizer.convert_tokens_to_ids(prompt)).int()
-        attention_mask[:len(text) + len(prompt)] = 1
-        attention_mask[padding:len(text)] = 0
-        token_type_ids[len(text):] = 1
+        attention_mask[:len(text)] = 1
+
+        # token_type_ids[len(text):] = 1
 
         # ids = self.tokenizer.encode_plus(text,
         #                                  prompt,
@@ -243,18 +242,17 @@ class FTDataSetV3(Dataset):
         #                                  padding="max_length",
         #                                  return_tensors="pt")
 
-        input_labels = torch.clone(input_ids)
+        # input_labels = torch.clone(input_ids)
 
-        for i in range(token_type_ids.shape[0]):
-            if token_type_ids[i] == 0:
-                input_labels[i] = -100
+        # for i in range(token_type_ids.shape[0]):
+        #     if token_type_ids[i] == 0:
+        #         input_labels[i] = -100
 
-        for i in range(len(text) - 1, len(text) + len(prompt) - 1):
-            input_labels[i] = input_labels[i + 1]
-        input_labels[len(text) + len(prompt) - 1] = -100
+        # for i in range(len(text) - 1, len(text) + len(prompt) - 1):
+        #     input_labels[i] = input_labels[i + 1]
+        # input_labels[len(text) + len(prompt) - 1] = -100
 
-        input_labels[len(text)+len(prompt):] = -100
-
+        input_labels[len(prompt):] = -100
 
         return input_ids, token_type_ids, attention_mask, input_labels
 
