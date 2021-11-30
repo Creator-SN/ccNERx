@@ -245,6 +245,30 @@ class Predictor(IPredict):
                         dim=1)
                 yield r.logits.cpu(), it["input_ids"].tolist()
 
+    def predict_directly(self, input_str=None, input_dict=None):
+        '''
+        Only for CCNERX
+        :param input_str: can be a str or a list of str.
+        :param input_dict: the tokenized dict.
+        '''
+        if input_str is not None:
+            it = self.tokenizer(input_str,
+                                padding="max_length",
+                                add_special_tokens=True,
+                                max_length=self.padding_length,
+                                truncation=True,
+                                return_tensors="pt")
+        else:
+            it = input_dict
+        for key in it.keys():
+            it[key] = self.cuda(it[key])
+        with torch.no_grad():
+            r = self.model(**it)
+            logits = r.logits
+            pred_scores = torch.softmax(logits, dim=-1)
+            pred_ids = pred_scores.max(-1)[1]
+        return logits.cpu(), pred_ids.tolist()
+
     def cuda(self, inputX):
         if type(inputX) == tuple:
             if torch.cuda.is_available():
