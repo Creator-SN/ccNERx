@@ -167,8 +167,9 @@ class EnhancedNERTrainer(ITrainer):
                 
                 # [batch_size, seq_len * 2, hidden_dim]
                 prompt_outputs = self.prompt_model(input_ids=it['gpt_input_ids'], attention_mask=it['gpt_attention_mask'], output_hidden_states=True)
-                prompt_hidden_states = prompt_outputs.hidden_states[-1]
-                prompt_features = prompt_hidden_states[:, self.max_seq_length - 1:-1, :]
+                prompt_hidden_states = prompt_outputs.hidden_states[2]
+                # prompt_features = prompt_hidden_states[:, self.max_seq_length - 1:-1, :]
+                prompt_features = prompt_hidden_states[:, :self.max_seq_length, :]
 
                 it['prompt_features'] = prompt_features
                 
@@ -278,8 +279,9 @@ class EnhancedNERTrainer(ITrainer):
 
                 # [batch_size, seq_len * 2, hidden_dim]
                 prompt_outputs = self.prompt_model(input_ids=it['gpt_input_ids'], attention_mask=it['gpt_attention_mask'], output_hidden_states=True)
-                prompt_hidden_states = prompt_outputs.hidden_states[-1]
-                prompt_features = prompt_hidden_states[:, self.max_seq_length - 1:-1, :]
+                prompt_hidden_states = prompt_outputs.hidden_states[2]
+                # prompt_features = prompt_hidden_states[:, self.max_seq_length - 1:-1, :]
+                prompt_features = prompt_hidden_states[:, :self.max_seq_length, :]
 
                 it['prompt_features'] = prompt_features
                 
