@@ -6,7 +6,7 @@ import numpy as np
 from torch.autograd.grad_mode import F
 import torch.nn as nn
 import torch.optim as optim
-from transformers import BertConfig, BertTokenizer, GPT2LMHeadModel, get_linear_schedule_with_warmup
+from transformers import BertConfig, BertTokenizer, BertModel, get_linear_schedule_with_warmup
 from tqdm import tqdm
 from ICCSupervised.ICCSupervised import ITrainer
 from CC.dataloader import AutoDataLoader
@@ -83,7 +83,7 @@ class EnhancedNERTrainer(ITrainer):
 
         self.bert_ner = CCNERModel(**model_args)
         self.model, self.birnncrf = self.bert_ner()
-        self.prompt_model = GPT2LMHeadModel.from_pretrained(
+        self.prompt_model = BertModel.from_pretrained(
             args['prompt_pretrained_file_name'], config=args['prompt_config_file_name'])
 
     def dataloader_init(self, **args):
@@ -156,28 +156,29 @@ class EnhancedNERTrainer(ITrainer):
                 train_step += 1
 
                 for key in it.keys():
-                    # temp_list = it[key].tolist()
-                    # temp = []
-                    # for item in temp_list:
-                    #     temp.append(item[:])
-                    #     temp.append(item[:])
-                    # it[key] = temp
-                    # it[key] = self.cuda(torch.tensor(it[key]))
                     it[key] = self.cuda(it[key])
                 
-                # [batch_size, seq_len * 2, hidden_dim]
-                prompt_outputs = self.prompt_model(input_ids=it['gpt_input_ids'], attention_mask=it['gpt_attention_mask'], output_hidden_states=True)
-                prompt_hidden_states = prompt_outputs.hidden_states[2]
-                # prompt_features = prompt_hidden_states[:, self.max_seq_length - 1:-1, :]
-                prompt_features = prompt_hidden_states[:, :self.max_seq_length, :]
+                # [batch_size, 4, 512]
+                prompt_inputs = it['???_input_ids']
+                prompt_inputs = prompt_inputs.reshape(-1, 512) # [batch_size * 4, 512]
+                prompt_attention_mask = prompt_inputs.gt(0)
+                for i in range(it['input_ids'].shape[0]):
+                    it['???_input_index'][i] = it['???_input_index'][i] + 2048 * i
+                prompt_outputs = self.prompt_model(input_ids=prompt_inputs, attention_mask=prompt_attention_mask)
+                prompt_hidden_states = prompt_outputs.last_hidden_state # [batch_size * 4, 512, 768]
+                prompt_hidden_states = prompt_hidden_states.reshape(-1, 768) # [batch_size * 4 * 512, 768]
+                prompt_hidden_states = prompt_hidden_states * prompt_attention_mask.unsqueeze(-1).float() # [batch_size * 4 * 512, 768]
+                prompt_entity_hs = prompt_hidden_states[it['???_input_index']] # [batch_size * max_seq_len * entity_pad_len(4), 768]
+                prompt_entity_hs = prompt_entity_hs.reshape(it['input_ids'].shape[0], -1, 4, 768) # [batch_size, max_seq_len, entity_pad_len(4), 768]
+                prompt_entity_hs_fusion = torch.sum(prompt_entity_hs, dim=2) # [batch_size, max_seq_len, 768]
 
-                it['prompt_features'] = prompt_features
+                # it['prompt_features'] = prompt_features
                 
                 outputs = self.model(**it)
                 hidden_states = outputs['mix_output']
 
                 loss = self.birnncrf.loss(
-                    hidden_states, it['input_ids'].gt(0), it['labels'])
+                    hidden_states, prompt_entity_hs_fusion, it['input_ids'].gt(0), it['labels'])
                 
                 loss = loss.mean()
 
