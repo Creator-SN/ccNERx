@@ -53,6 +53,8 @@ class NERPreTrainer(ITrainer):
             self.dm = result['dm']
             self.tag_size = len(self.dm.tag_to_idx)
             self.analysis = CCAnalysis(self.dm.tagToIdx, self.dm.idxToTag)
+        elif self.loader_name == 'ptloader_v2':
+            self.analysis = CCAnalysis(None, None)
 
     def train(self, lr=1e-4):
 
@@ -77,7 +79,7 @@ class NERPreTrainer(ITrainer):
                 train_step += 1
 
                 for key in it.keys():
-                    it[key] = self.cuda(it[key])
+                    it[key] = self.cuda(it[key].long())
 
                 outputs = self.model(input_ids=it['input_ids'], attention_mask=it['attention_mask'],
                                      token_type_ids=it['token_type_ids'], labels=it['origin_labels'])
