@@ -1,4 +1,5 @@
 # %%
+from torch.serialization import load
 from CC.loaders import *
 
 args = {
@@ -74,13 +75,15 @@ args = {
 }
 
 
-loader = PTLoaderV2(**args)
+loader = FTLoaderV4(**args)
 
 #%%
-for i in loader.myData[0:10]["origin_labels"]:
+for i in loader.myData[0:1]["prompt_input_ids"]:
     print(loader.tokenizer.decode(i))
     # print(i)
 
+#%%
+print(loader.myData[0])
 
 #%%
 old_loader = LXLoader(**args)
