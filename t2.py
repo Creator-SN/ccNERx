@@ -74,7 +74,13 @@ args = {
 }
 
 
-loader = PTLoaderV2(**args)
+loader = PTLoaderV3(**args)
+
+#%%
+for i in loader.dataiter:
+    print(i)
+    break
+
 
 #%%
 for i in loader.myData[0:10]["origin_labels"]:
