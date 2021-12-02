@@ -128,7 +128,7 @@ class FTLoaderV4(IDataLoader):
                     self.word_vocab,
                 )
                 self.dataiter_eval = DataLoader(
-                    self.myData, batch_size=self.eval_batch_size)
+                    self.myData_eval, batch_size=self.eval_batch_size)
 
     def __call__(self):
         return {'train_set': self.myData, 'train_iter': self.dataiter}
@@ -169,11 +169,12 @@ class FTLoaderV4DataSet(Dataset):
             "prompt_input_ids": torch.zeros(max_padding, dtype=torch.int),
             "prompt_attention_mask": torch.zeros(max_padding, dtype=torch.int),
             "prompt_token_type_ids": torch.zeros(max_padding, dtype=torch.int),
-            "prompt_labels": torch.tensor([-100] * max_padding, dtype=torch.int),
+            "prompt_labels": torch.tensor([-100] * max_padding,
+                                          dtype=torch.int),
             "prompt_origin_labels": None,
         }
-        text_ids["prompt_input_ids"][:cur_length] = torch.tensor(ids["input_ids"],
-                                                          dtype=torch.int)
+        text_ids["prompt_input_ids"][:cur_length] = torch.tensor(
+            ids["input_ids"], dtype=torch.int)
 
         text_ids["prompt_attention_mask"][:cur_length] = 1
 
@@ -225,25 +226,26 @@ class FTLoaderV4DataSet(Dataset):
                 [-1]] if i != 0 and i - 1 < len(text) else self.tag_rules["O"]
 
             current["prompt_input_ids"][cur_length:cur_length +
-                                 len(prompt_text)] = torch.tensor(
-                                     self.tokenizer.convert_tokens_to_ids(
-                                         prompt_text),
-                                     dtype=torch.int)
+                                        len(prompt_text)] = torch.tensor(
+                                            self.tokenizer.
+                                            convert_tokens_to_ids(prompt_text),
+                                            dtype=torch.int)
 
             current["prompt_attention_mask"][cur_length:cur_length +
-                                      len(prompt_text)] = torch.tensor(
-                                          [1] * (len(str(i)) + 1) +
-                                          [0] * self.max_tag_length + [1],
-                                          dtype=torch.int)
+                                             len(prompt_text)] = torch.tensor(
+                                                 [1] * (len(str(i)) + 1) +
+                                                 [0] * self.max_tag_length +
+                                                 [1],
+                                                 dtype=torch.int)
             mask_label_ids = self.tokenizer.convert_tokens_to_ids(
                 list(char_label))
             current["prompt_labels"][cur_length:cur_length +
-                              len(prompt_text)] = torch.tensor(
-                                  [-100] * (len(str(i)) + 1) + mask_label_ids +
-                                  [0] *
-                                  (self.max_tag_length - len(mask_label_ids)) +
-                                  [-100],
-                                  dtype=torch.int)
+                                     len(prompt_text)] = torch.tensor(
+                                         [-100] * (len(str(i)) + 1) +
+                                         mask_label_ids + [0] *
+                                         (self.max_tag_length -
+                                          len(mask_label_ids)) + [-100],
+                                         dtype=torch.int)
 
             current["prompt_origin_labels"][
                 cur_length:cur_length + len(prompt_text)] = torch.tensor(
@@ -340,7 +342,7 @@ class FTLoaderV4DataSet(Dataset):
             line = line.strip()
             data: Dict[str, List[Any]] = json.loads(line)
 
-            d = self.convert_embedding(data,return_dict=True)
+            d = self.convert_embedding(data, return_dict=True)
             d.update(self.convert_prompts(data))
 
             self.dataset.append(d)
