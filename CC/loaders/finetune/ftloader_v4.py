@@ -131,7 +131,28 @@ class FTLoaderV4(IDataLoader):
                     self.myData_eval, batch_size=self.eval_batch_size)
 
     def __call__(self):
-        return {'train_set': self.myData, 'train_iter': self.dataiter}
+        if not self.use_test:
+            return {
+                'train_set': self.myData,
+                'train_iter': self.dataiter,
+                'eval_set': self.myData_eval,
+                'eval_iter': self.dataiter_eval,
+                'lexicon_tree': self.lexicon_tree,
+                'tag_vocab': self.tag_vocab,
+                'word_vocab': self.word_vocab,
+                'word_embedding': self.vocab_embedding,
+                'word_embedding_dim': self.embedding_dim
+            }
+        else:
+            return {
+                'test_set': self.myData_test,
+                'test_iter': self.dataiter_test,
+                'lexicon_tree': self.lexicon_tree,
+                'tag_vocab': self.tag_vocab,
+                'word_vocab': self.word_vocab,
+                'word_embedding': self.vocab_embedding,
+                'word_embedding_dim': self.embedding_dim
+            }
 
 
 class FTLoaderV4DataSet(Dataset):
