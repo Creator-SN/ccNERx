@@ -1,5 +1,6 @@
 import collections
 import enum
+from os import read
 import torch
 from torch._C import dtype
 from CC.loaders.utils import *
@@ -140,8 +141,8 @@ class FTLoaderV4(IDataLoader):
                 'lexicon_tree': self.lexicon_tree,
                 'tag_vocab': self.tag_vocab,
                 'word_vocab': self.word_vocab,
-                'word_embedding': self.vocab_embedding,
-                'word_embedding_dim': self.embedding_dim
+                'vocab_embedding': self.vocab_embedding,
+                'embedding_dim': self.embedding_dim
             }
         else:
             return {
@@ -150,8 +151,8 @@ class FTLoaderV4(IDataLoader):
                 'lexicon_tree': self.lexicon_tree,
                 'tag_vocab': self.tag_vocab,
                 'word_vocab': self.word_vocab,
-                'word_embedding': self.vocab_embedding,
-                'word_embedding_dim': self.embedding_dim
+                'vocab_embedding': self.vocab_embedding,
+                'embedding_dim': self.embedding_dim
             }
 
 
@@ -277,6 +278,7 @@ class FTLoaderV4DataSet(Dataset):
 
             cur_length += len(prompt_text)
 
+        # 最后一组数据
         for key in collections.keys():
             collections[key].append(current[key].clone())
 
@@ -342,7 +344,8 @@ class FTLoaderV4DataSet(Dataset):
         return input_token_ids, attention_mask, token_type_ids, matched_word_ids, matched_word_mask, labels
 
     def __init_dataset(self):
-        line_total = FileUtil.count_lines(self.file)
+        reader = FileReader(self.file)
+        line_total = reader.line_size()
 
         self.dataset = []
         # left model keys
@@ -357,7 +360,7 @@ class FTLoaderV4DataSet(Dataset):
         ]
         self.prompt_keys = [f"prompt_{i}" for i in self.prompt_keys]
 
-        for line in tqdm(FileUtil.line_iter(self.file),
+        for line in tqdm(reader.line_iter(),
                          desc=f"load dataset from {self.file}",
                          total=line_total):
             line = line.strip()
