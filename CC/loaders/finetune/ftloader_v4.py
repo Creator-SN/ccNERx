@@ -1,5 +1,6 @@
 import collections
 import enum
+from os import read
 import torch
 from torch._C import dtype
 from CC.loaders.utils import *
@@ -131,8 +132,28 @@ class FTLoaderV4(IDataLoader):
                     self.myData_eval, batch_size=self.eval_batch_size)
 
     def __call__(self):
-        return {'train_set': self.myData, 'train_iter': self.dataiter, 'eval_set': self.myData_eval,
-                'eval_iter': self.dataiter_eval, 'vocab_embedding': self.vocab_embedding, 'embedding_dim': self.embedding_dim, 'tag_vocab': self.tag_vocab}
+        if not self.use_test:
+            return {
+                'train_set': self.myData,
+                'train_iter': self.dataiter,
+                'eval_set': self.myData_eval,
+                'eval_iter': self.dataiter_eval,
+                'lexicon_tree': self.lexicon_tree,
+                'tag_vocab': self.tag_vocab,
+                'word_vocab': self.word_vocab,
+                'vocab_embedding': self.vocab_embedding,
+                'embedding_dim': self.embedding_dim
+            }
+        else:
+            return {
+                'test_set': self.myData_test,
+                'test_iter': self.dataiter_test,
+                'lexicon_tree': self.lexicon_tree,
+                'tag_vocab': self.tag_vocab,
+                'word_vocab': self.word_vocab,
+                'vocab_embedding': self.vocab_embedding,
+                'embedding_dim': self.embedding_dim
+            }
 
 
 class FTLoaderV4DataSet(Dataset):
@@ -170,11 +191,12 @@ class FTLoaderV4DataSet(Dataset):
             "prompt_input_ids": torch.zeros(max_padding, dtype=torch.int),
             "prompt_attention_mask": torch.zeros(max_padding, dtype=torch.int),
             "prompt_token_type_ids": torch.zeros(max_padding, dtype=torch.int),
-            "prompt_labels": torch.tensor([-100] * max_padding, dtype=torch.int),
+            "prompt_labels": torch.tensor([-100] * max_padding,
+                                          dtype=torch.int),
             "prompt_origin_labels": None,
         }
-        text_ids["prompt_input_ids"][:cur_length] = torch.tensor(ids["input_ids"],
-                                                          dtype=torch.int)
+        text_ids["prompt_input_ids"][:cur_length] = torch.tensor(
+            ids["input_ids"], dtype=torch.int)
 
         text_ids["prompt_attention_mask"][:cur_length] = 1
 
@@ -226,25 +248,26 @@ class FTLoaderV4DataSet(Dataset):
                 [-1]] if i != 0 and i - 1 < len(text) else self.tag_rules["O"]
 
             current["prompt_input_ids"][cur_length:cur_length +
-                                 len(prompt_text)] = torch.tensor(
-                                     self.tokenizer.convert_tokens_to_ids(
-                                         prompt_text),
-                                     dtype=torch.int)
+                                        len(prompt_text)] = torch.tensor(
+                                            self.tokenizer.
+                                            convert_tokens_to_ids(prompt_text),
+                                            dtype=torch.int)
 
             current["prompt_attention_mask"][cur_length:cur_length +
-                                      len(prompt_text)] = torch.tensor(
-                                          [1] * (len(str(i)) + 1) +
-                                          [0] * self.max_tag_length + [1],
-                                          dtype=torch.int)
+                                             len(prompt_text)] = torch.tensor(
+                                                 [1] * (len(str(i)) + 1) +
+                                                 [0] * self.max_tag_length +
+                                                 [1],
+                                                 dtype=torch.int)
             mask_label_ids = self.tokenizer.convert_tokens_to_ids(
                 list(char_label))
             current["prompt_labels"][cur_length:cur_length +
-                              len(prompt_text)] = torch.tensor(
-                                  [-100] * (len(str(i)) + 1) + mask_label_ids +
-                                  [0] *
-                                  (self.max_tag_length - len(mask_label_ids)) +
-                                  [-100],
-                                  dtype=torch.int)
+                                     len(prompt_text)] = torch.tensor(
+                                         [-100] * (len(str(i)) + 1) +
+                                         mask_label_ids + [0] *
+                                         (self.max_tag_length -
+                                          len(mask_label_ids)) + [-100],
+                                         dtype=torch.int)
 
             current["prompt_origin_labels"][
                 cur_length:cur_length + len(prompt_text)] = torch.tensor(
@@ -255,6 +278,7 @@ class FTLoaderV4DataSet(Dataset):
 
             cur_length += len(prompt_text)
 
+        # 最后一组数据
         for key in collections.keys():
             collections[key].append(current[key].clone())
 
@@ -320,7 +344,8 @@ class FTLoaderV4DataSet(Dataset):
         return input_token_ids, attention_mask, token_type_ids, matched_word_ids, matched_word_mask, labels
 
     def __init_dataset(self):
-        line_total = FileUtil.count_lines(self.file)
+        reader = FileReader(self.file)
+        line_total = reader.line_size()
 
         self.dataset = []
         # left model keys
@@ -335,13 +360,13 @@ class FTLoaderV4DataSet(Dataset):
         ]
         self.prompt_keys = [f"prompt_{i}" for i in self.prompt_keys]
 
-        for line in tqdm(FileUtil.line_iter(self.file),
+        for line in tqdm(reader.line_iter(),
                          desc=f"load dataset from {self.file}",
                          total=line_total):
             line = line.strip()
             data: Dict[str, List[Any]] = json.loads(line)
 
-            d = self.convert_embedding(data,return_dict=True)
+            d = self.convert_embedding(data, return_dict=True)
             d.update(self.convert_prompts(data))
 
             self.dataset.append(d)
