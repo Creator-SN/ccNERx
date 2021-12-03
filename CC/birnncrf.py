@@ -12,7 +12,7 @@ class BiRnnCrf(nn.Module):
         self.tagset_size = tagset_size
 
         self.fc1 = nn.Linear(embedding_dim + hidden_dim, self.tagset_size + 2)
-        self.dense = nn.Linear(embedding_dim, embedding_dim)
+        self.dense = nn.Linear(embedding_dim * 4, embedding_dim)
         self.act = nn.GELU()
         self.layerNorm = nn.LayerNorm(embedding_dim)
         # self.fc2 = nn.Linear(embedding_dim, self.tagset_size + 2)

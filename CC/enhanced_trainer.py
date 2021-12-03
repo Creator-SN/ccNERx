@@ -175,7 +175,8 @@ class EnhancedNERTrainer(ITrainer):
                 prompt_hidden_states = prompt_hidden_states.reshape(-1, 768) # [batch_size * 4 * 512, 768]
                 prompt_entity_hs = prompt_hidden_states[prompt_indexed] # [batch_size * max_seq_len * entity_pad_len(4), 768]
                 prompt_entity_hs = prompt_entity_hs.reshape(it['input_ids'].shape[0], -1, 4, 768) # [batch_size, max_seq_len, entity_pad_len(4), 768]
-                prompt_entity_hs_fusion = torch.mean(prompt_entity_hs, dim=2) # [batch_size, max_seq_len, 768]
+                # prompt_entity_hs_fusion = torch.mean(prompt_entity_hs, dim=2) # [batch_size, max_seq_len, 768]
+                prompt_entity_hs_fusion = prompt_entity_hs.reshape(it['input_ids'].shape[0], it['input_ids'].shape[1], -1) # [batch_size, max_seq_len, 4 * 768]
 
                 # it['prompt_features'] = prompt_features
                 
@@ -300,7 +301,8 @@ class EnhancedNERTrainer(ITrainer):
                 prompt_hidden_states = prompt_hidden_states.reshape(-1, 768) # [batch_size * 4 * 512, 768]
                 prompt_entity_hs = prompt_hidden_states[prompt_indexed] # [batch_size * max_seq_len * entity_pad_len(4), 768]
                 prompt_entity_hs = prompt_entity_hs.reshape(it['input_ids'].shape[0], -1, 4, 768) # [batch_size, max_seq_len, entity_pad_len(4), 768]
-                prompt_entity_hs_fusion = torch.mean(prompt_entity_hs, dim=2) # [batch_size, max_seq_len, 768]
+                # prompt_entity_hs_fusion = torch.mean(prompt_entity_hs, dim=2) # [batch_size, max_seq_len, 768]
+                prompt_entity_hs_fusion = prompt_entity_hs.reshape(it['input_ids'].shape[0], it['input_ids'].shape[1], -1) # [batch_size, max_seq_len, 768]
                 
                 outputs = self.model(**it)
                 hidden_states = outputs['mix_output']
