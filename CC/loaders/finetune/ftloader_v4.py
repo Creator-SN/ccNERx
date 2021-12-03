@@ -120,9 +120,8 @@ class FTLoaderV4(IDataLoader):
                                             self.tag_vocab,
                                             self.lexicon_tree,
                                             self.max_word_num,
-                                            self.word_vocab,
-                                            do_shuffle=self.do_shuffle)
-            self.dataiter = DataLoader(self.myData, batch_size=self.batch_size)
+                                            self.word_vocab)
+            self.dataiter = DataLoader(self.myData, batch_size=self.batch_size,shuffle=self.do_shuffle)
             if self.output_eval:
                 self.myData_eval = FTLoaderV4DataSet(
                     self.eval_file,
