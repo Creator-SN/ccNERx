@@ -128,10 +128,11 @@ class FTLoaderV4(IDataLoader):
                     self.word_vocab,
                 )
                 self.dataiter_eval = DataLoader(
-                    self.myData, batch_size=self.eval_batch_size)
+                    self.myData_eval, batch_size=self.eval_batch_size)
 
     def __call__(self):
-        return {'train_set': self.myData, 'train_iter': self.dataiter}
+        return {'train_set': self.myData, 'train_iter': self.dataiter, 'eval_set': self.myData_eval,
+                'eval_iter': self.dataiter_eval, 'vocab_embedding': self.vocab_embedding, 'embedding_dim': self.embedding_dim, 'tag_vocab': self.tag_vocab}
 
 
 class FTLoaderV4DataSet(Dataset):

@@ -26,7 +26,7 @@ class CRF(nn.Module):
         self.start_idx = self.num_tags - 2
         self.stop_idx = self.num_tags - 1
 
-        self.fc = nn.Linear(in_features, self.num_tags)
+        # self.fc = nn.Linear(in_features, self.num_tags)
 
         # transition factor, Tij mean transition from j to i
         self.transitions = nn.Parameter(torch.randn(self.num_tags, self.num_tags), requires_grad=True)
@@ -41,7 +41,7 @@ class CRF(nn.Module):
             best_score: [B]
             best_paths: [B, L]
         """
-        features = self.fc(features)
+        # features = self.fc(features)
         return self.__viterbi_decode(features, masks[:, :features.size(1)].float())
 
     def loss(self, features, ys, masks):
@@ -52,7 +52,7 @@ class CRF(nn.Module):
         :param masks: masks for padding, [B, L]
         :return: loss
         """
-        features = self.fc(features)
+        # features = self.fc(features)
 
         L = features.size(1)
         masks_ = masks[:, :L].float()
