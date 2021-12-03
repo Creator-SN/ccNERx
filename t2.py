@@ -78,7 +78,7 @@ args = {
 loader = FTLoaderV4(**args)
 
 #%%
-for i in loader.myData[0:1]["prompt_input_ids"]:
+for i in loader.myData[4:10]["prompt_origin_labels"]:
     print(loader.tokenizer.decode(i))
     # print(i)
 
