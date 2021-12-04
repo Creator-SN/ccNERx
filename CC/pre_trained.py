@@ -81,8 +81,8 @@ class NERPreTrainer(ITrainer):
                 for key in it.keys():
                     it[key] = self.cuda(it[key].long())
 
-                outputs = self.model(input_ids=it['input_ids'], attention_mask=it['attention_mask'],
-                                     token_type_ids=it['token_type_ids'], labels=it['origin_labels'])
+                outputs = self.model(input_ids=it['prompt_input_ids'], attention_mask=it['prompt_attention_mask'],
+                                     token_type_ids=it['prompt_token_type_ids'], labels=it['prompt_origin_labels'])
                 loss = outputs.loss
                 loss = loss.mean()
 
