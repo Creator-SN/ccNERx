@@ -15,7 +15,11 @@ class BiRnnCrf(nn.Module):
         self.dense = nn.Linear(embedding_dim * 4, embedding_dim)
         self.act = nn.GELU()
         self.layerNorm = nn.LayerNorm(embedding_dim)
-        # self.fc2 = nn.Linear(embedding_dim, self.tagset_size + 2)
+        self.attention = nn.Sequential(
+            nn.Linear(embedding_dim, embedding_dim),
+            nn.ReLU(True),
+            nn.Linear(embedding_dim, embedding_dim)
+        )
 
         RNN = nn.LSTM if rnn == "lstm" else nn.GRU
         self.rnn = RNN(self.embedding_dim, hidden_dim // 2, num_layers=num_rnn_layers,
@@ -39,6 +43,11 @@ class BiRnnCrf(nn.Module):
     def loss(self, embeds, prompt, masks, tags):
         features, masks = self.__build_features(embeds, masks)
         prompt_feature = self.dense(prompt)
+        
+        prompt_feature_weights = self.attention(prompt_feature)
+        prompt_feature_weights = torch.softmax(prompt_feature_weights, dim=1)
+        prompt_feature = prompt_feature * prompt_feature_weights
+        
         prompt_feature = self.act(prompt_feature)
         prompt_feature = self.layerNorm(prompt_feature)
         fusion = torch.cat([features, prompt_feature[:, :features.shape[1], :]], dim=-1)
@@ -50,6 +59,11 @@ class BiRnnCrf(nn.Module):
         # Get the emission scores from the BiLSTM
         features, masks = self.__build_features(embeds, masks)
         prompt_feature = self.dense(prompt)
+        
+        prompt_feature_weights = self.attention(prompt_feature)
+        prompt_feature_weights = torch.softmax(prompt_feature_weights, dim=1)
+        prompt_feature = prompt_feature * prompt_feature_weights
+        
         prompt_feature = self.act(prompt_feature)
         prompt_feature = self.layerNorm(prompt_feature)
         fusion = torch.cat([features, prompt_feature[:, :features.shape[1], :]], dim=-1)
