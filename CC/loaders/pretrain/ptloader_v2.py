@@ -34,6 +34,7 @@ class PTLoaderV2(IDataLoader):
     def read_data_set(self):
 
         # self.max_tag_length = max(len(i) for i in self.tag_rules.values())
+        self.max_tag_length = 1
 
         self.tokenizer = BertTokenizer.from_pretrained(self.bert_vocab_file)
 
@@ -45,8 +46,10 @@ class PTLoaderV2(IDataLoader):
                                         self.tokenizer,
                                         self.tag_rules,
                                         self.max_seq_length,
+                                        self.max_tag_length,
                                         self.tag_rules_to_unused)
-        self.dataiter = DataLoader(self.myData, batch_size=self.batch_size,shuffle=self.do_shuffle)
+        self.dataiter = DataLoader(
+            self.myData, batch_size=self.batch_size, shuffle=self.do_shuffle)
 
     def __call__(self):
         return {'train_set': self.myData, 'train_iter': self.dataiter}
@@ -58,134 +61,100 @@ class PTLoaderV2DataSet(Dataset):
                  tokenizer: BertTokenizer,
                  tag_rules: Dict[str, str],
                  max_seq_length: int,
-                 #  max_tag_length: int,
-                 tag_rules_to_unused,
-                 default_tag="O",
-                 do_shuffle: bool = False):
+                 max_tag_length: int,
+                 tag_rules_to_unused: Dict[str, int]):
         self.__dict__.update(locals().items())
         self.__init_dataset()
 
     def convert_prompts(self, item):
-        if "text" not in item:
-            raise KeyError(f"key text not exists in item: {item}")
-        if "label" not in item:
-            raise KeyError(f"key label not exists in item: {item}")
         text, label = item["text"][:self.max_seq_length - 2], item["label"]
 
+        choices_index = set()
+
+        prompts = []
+        prompts_attention_mask = []
+        prompts_labels = []
+        prompts_origin_labels = []
+
+        cur_length = len(text) + 2
+        padding = self.max_tag_length + 2
+        # 优先选取边界
+        for i in range(len(text)):
+            if cur_length + 2 * padding + len(str(i)) + len(
+                    str(i + 1)) < self.max_seq_length and i + 1 < len(
+                        text) and label[i].split("-")[-1] != label[i + 1].split("-")[-1]:
+                if i + 1 not in choices_index:
+                    choices_index.add(i + 1)
+                    cur_length += padding + len(str(i + 1))
+                if i + 2 not in choices_index:
+                    choices_index.add(i + 2)
+                    cur_length += padding + len(str(i + 2))
+        # 按素数步进选取
+        for i in range(0, len(text), 3):
+            if cur_length + padding + len(str(i)) < self.max_seq_length:
+                if i + 1 not in choices_index:
+                    choices_index.add(i + 1)
+                    cur_length += padding + len(str(i + 1))
+            else:
+                break
+        choices_index = sorted(choices_index)
+        # 生成prompts
+        for i in choices_index:
+            prompts += self.tokenizer.convert_tokens_to_ids(
+                list(str(i)) + ["是"] + ["[MASK]"] * self.max_tag_length +
+                [","])
+            prompts_attention_mask += [1] * (
+                len(str(i)) + 1) + [0] * self.max_tag_length + [1]
+            # mask_ids = self.tokenizer.convert_tokens_to_ids(
+            #     list(self.tag_rules[label[i-1].split("-")[-1]]))
+            mask_ids = [self.tag_rules_to_unused[label[i-1].split("-")[-1]]]
+            prompts_labels += [-100] * (len(str(i)) + 1) + mask_ids + [0] * (
+                self.max_tag_length - len(mask_ids)) + [-100]
+            prompts_origin_labels += self.tokenizer.convert_tokens_to_ids(
+                list(str(i) + '是')) + mask_ids + [0] * (
+                    self.max_tag_length -
+                    len(mask_ids)) + self.tokenizer.convert_tokens_to_ids(
+                        [","])
+
+        # 长度检查
+        assert len(prompts) == len(prompts_attention_mask)
+        assert len(prompts_labels) == len(prompts_origin_labels)
+        assert len(prompts) == len(prompts_labels)
+
         ids = self.tokenizer(''.join(text))
+        input_ids = torch.zeros(self.max_seq_length, dtype=torch.int)
+        text_length = len(ids["input_ids"])
+        input_ids[:text_length] = torch.tensor(ids["input_ids"],
+                                               dtype=torch.int)
+        origin_labels = input_ids.clone()
 
-        tag_length = 1
+        input_ids[text_length:text_length + len(prompts)] = torch.tensor(
+            prompts, dtype=torch.int)
+        origin_labels[text_length:text_length +
+                      len(prompts_origin_labels)] = torch.tensor(
+                          prompts_origin_labels, dtype=torch.int)
 
-        cur_length = len(ids["input_ids"])
-        offset: int = self.max_seq_length
-        padding = tag_length + 2
+        labels = torch.tensor([-100] * self.max_seq_length, dtype=torch.int)
+        labels[text_length:text_length + len(prompts_labels)] = torch.tensor(
+            prompts_labels, dtype=torch.int)
 
-        max_padding = 512
+        attention_mask = torch.zeros(self.max_seq_length, dtype=torch.int)
+        attention_mask[:text_length] = torch.tensor(
+            ids["attention_mask"]).int()
+        attention_mask[text_length:text_length +
+                       len(prompts_attention_mask)] = torch.tensor(
+                           prompts_attention_mask, dtype=torch.int)
 
-        text_ids = {
-            "prompt_input_ids": torch.zeros(max_padding, dtype=torch.int),
-            "prompt_attention_mask": torch.zeros(max_padding, dtype=torch.int),
-            "prompt_token_type_ids": torch.zeros(max_padding, dtype=torch.int),
-            "prompt_labels": torch.tensor([-100] * max_padding,
-                                          dtype=torch.int),
-            "prompt_origin_labels": None,
+        token_type_ids = torch.zeros(self.max_seq_length, dtype=torch.int)
+        token_type_ids[text_length:] = 1
+
+        return {
+            "prompt_input_ids": input_ids,
+            "prompt_attention_mask": attention_mask,
+            "prompt_token_type_ids": token_type_ids,
+            "prompt_labels": labels,
+            "prompt_origin_labels": origin_labels
         }
-        text_ids["prompt_input_ids"][:cur_length] = torch.tensor(
-            ids["input_ids"], dtype=torch.int)
-
-        text_ids["prompt_attention_mask"][:cur_length] = 1
-
-        text_ids["prompt_token_type_ids"][cur_length:] = 1
-
-        text_ids["prompt_origin_labels"] = text_ids["prompt_input_ids"].clone()
-
-        current = dict(
-            zip(text_ids.keys(), [i.clone() for i in text_ids.values()]))
-
-        collections = {}
-        for key in current.keys():
-            collections[key] = []
-
-        # [512 / 7] * 4
-        index_length = math.ceil(
-            (max_padding - self.max_seq_length) /
-            (3 + tag_length)) * tag_length
-        # index_length = 300
-
-        indexes = torch.zeros(4 * self.max_seq_length, dtype=np.int)
-        index_offset = 0
-        cur_length = offset
-        count = 0
-        for i in range(self.max_seq_length):
-            prompt_text = list(f"{i}是") + ["[MASK]"] * tag_length + [
-                ","
-            ]
-            if cur_length + len(prompt_text) >= max_padding:
-                count += 1
-                # 超出长度判断，生成当前组数据
-                for key in collections.keys():
-                    collections[key].append(current[key])
-                # 重置数据，为下一组数据做准备
-                cur_length = offset
-                current = dict(
-                    zip(text_ids.keys(),
-                        [i.clone() for i in text_ids.values()]))
-            # 左闭右开
-            start, end = cur_length + len(str(i)) + 1, cur_length + len(
-                str(i)) + padding - 1
-
-            for j in range(start, end):
-                indexes[index_offset] = count * max_padding + j
-                index_offset += 1
-
-            char_label = self.tag_rules_to_unused[
-                label[i - 1].split("-")
-                [-1]] if i != 0 and i - 1 < len(text) else self.tag_rules_to_unused[self.default_tag]
-
-            current["prompt_input_ids"][cur_length:cur_length +
-                                        len(prompt_text)] = torch.tensor(
-                                            self.tokenizer.
-                                            convert_tokens_to_ids(prompt_text),
-                                            dtype=torch.int)
-
-            current["prompt_attention_mask"][cur_length:cur_length +
-                                             len(prompt_text)] = torch.tensor(
-                                                 [1] * (len(str(i)) + 1) +
-                                                 [0] * tag_length +
-                                                 [1],
-                                                 dtype=torch.int)
-            mask_label_ids = [char_label]
-            try:
-                current["prompt_labels"][cur_length:cur_length +
-                                         len(prompt_text)] = torch.tensor(
-                    [-100] * (len(str(i)) + 1) +
-                    mask_label_ids + [0] *
-                    (tag_length -
-                     len(mask_label_ids)) + [-100],
-                    dtype=torch.int)
-            except TypeError as e:
-                print(mask_label_ids)
-                raise e
-            current["prompt_origin_labels"][
-                cur_length:cur_length + len(prompt_text)] = torch.tensor(
-                    self.tokenizer.convert_tokens_to_ids(list(str(i) + '是')) +
-                    mask_label_ids + [0] *
-                    (tag_length - len(mask_label_ids)) +
-                    self.tokenizer.convert_tokens_to_ids([","]))
-
-            cur_length += len(prompt_text)
-
-        # 最后一组数据
-        for key in collections.keys():
-            collections[key].append(current[key].clone())
-
-        # 按序合并到一维
-        for key in collections.keys():
-            collections[key] = torch.stack(collections[key]).reshape(-1)
-
-        collections["prompt_indexes"] = indexes
-
-        return collections
 
     def __init_dataset(self):
         line_total = FileUtil.count_lines(self.file)
@@ -195,7 +164,6 @@ class PTLoaderV2DataSet(Dataset):
             "input_ids", "attention_mask", "token_type_ids", "labels",
             "origin_labels"
         ]
-
         self.keys = [f"prompt_{i}" for i in self.keys]
 
         for line in tqdm(FileUtil.line_iter(self.file),
@@ -206,26 +174,9 @@ class PTLoaderV2DataSet(Dataset):
             self.dataset.append(self.convert_prompts(data))
 
         self.size = len(self.dataset)
-        self.indexes = [i for i in range(self.size)]
-        if self.do_shuffle:
-            random.shuffle(self.indexes)
 
     def __getitem__(self, idx):
-        idx = self.indexes[idx]
-        if isinstance(idx, list):
-            data = {}
-            for key in self.keys:
-                data[key] = [self.dataset[j][key] for j in idx]
-                data[key] = torch.stack(data[key])
-            return data
         return self.dataset[idx]
-        # if isinstance(idx, list):
-        #     return dict(
-        #         zip(self.keys, [
-        #             torch.stack([self.dataset[i][j] for i in idx])
-        #             for j in range(len(self.keys))
-        #         ]))
-        # return dict(zip(self.keys, self.dataset[idx]))
 
     def __len__(self):
         return self.size

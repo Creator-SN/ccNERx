@@ -75,11 +75,11 @@ args = {
 }
 
 
-loader = FTLoaderV4(**args)
+loader = PTLoaderV2(**args)
 
 #%%
-for i in loader.myData[4:10]["prompt_origin_labels"]:
-    print(loader.tokenizer.decode(i))
+for i in loader.myData[0:4]:
+    print(loader.tokenizer.decode(i["prompt_origin_labels"]))
     # print(i)
 
 #%%
