@@ -89,22 +89,15 @@ class FTLoaderV4(IDataLoader):
                 self.word_embedding_file, self.max_scan_num, self.add_seq_vocab
             ).get_embedding())
 
-        self.tag_rules_to_unused = dict(zip(self.tag_rules.keys(),list(range(1,len(self.tag_rules)+1))))
-
-        # self.max_tag_length = max(len(i) for i in self.tag_rules.values())
-
+        self.max_tag_length = max(len(i) for i in self.tag_rules.values())
 
         self.tokenizer = BertTokenizer.from_pretrained(self.bert_vocab_file)
 
     def process_data(self):
         if self.use_test:
             self.myData_test = FTLoaderV4DataSet(
-                self.test_file, self.tokenizer, 
-                # self.tag_rules,
-                self.max_seq_length, 
-                # self.max_tag_length, 
-                self.tag_rules_to_unused,
-                self.default_tag,
+                self.test_file, self.tokenizer, self.tag_rules,
+                self.max_seq_length, self.max_tag_length, self.default_tag,
                 self.tag_vocab, self.lexicon_tree, self.max_word_num,
                 self.word_vocab)
             self.dataiter_test = DataLoader(self.myData_test,
@@ -112,24 +105,23 @@ class FTLoaderV4(IDataLoader):
         else:
             self.myData = FTLoaderV4DataSet(self.train_file,
                                             self.tokenizer,
-                                            # self.tag_rules,
+                                            self.tag_rules,
                                             self.max_seq_length,
-                                            # self.max_tag_length,
-                                            self.tag_rules_to_unused,
+                                            self.max_tag_length,
                                             self.default_tag,
                                             self.tag_vocab,
                                             self.lexicon_tree,
                                             self.max_word_num,
-                                            self.word_vocab)
-            self.dataiter = DataLoader(self.myData, batch_size=self.batch_size,shuffle=self.do_shuffle)
+                                            self.word_vocab,
+                                            do_shuffle=self.do_shuffle)
+            self.dataiter = DataLoader(self.myData, batch_size=self.batch_size)
             if self.output_eval:
                 self.myData_eval = FTLoaderV4DataSet(
                     self.eval_file,
                     self.tokenizer,
-                    # self.tag_rules,
+                    self.tag_rules,
                     self.max_seq_length,
-                    # self.max_tag_length,
-                    self.tag_rules_to_unused,
+                    self.max_tag_length,
                     self.default_tag,
                     self.tag_vocab,
                     self.lexicon_tree,
@@ -150,8 +142,7 @@ class FTLoaderV4(IDataLoader):
                 'tag_vocab': self.tag_vocab,
                 'word_vocab': self.word_vocab,
                 'vocab_embedding': self.vocab_embedding,
-                'embedding_dim': self.embedding_dim,
-                'tag_rules_to_unused':self.tag_rules_to_unused,
+                'embedding_dim': self.embedding_dim
             }
         else:
             return {
@@ -161,8 +152,7 @@ class FTLoaderV4(IDataLoader):
                 'tag_vocab': self.tag_vocab,
                 'word_vocab': self.word_vocab,
                 'vocab_embedding': self.vocab_embedding,
-                'embedding_dim': self.embedding_dim,
-                'tag_rules_to_unused':self.tag_rules_to_unused
+                'embedding_dim': self.embedding_dim
             }
 
 
@@ -170,10 +160,9 @@ class FTLoaderV4DataSet(Dataset):
     def __init__(self,
                  file: str,
                  tokenizer: BertTokenizer,
-                #  tag_rules: Dict[str, str],
+                 tag_rules: Dict[str, str],
                  max_seq_length: int,
-                #  max_tag_length: int,
-                 tag_rules_to_unused:Dict[str,int],
+                 max_tag_length: int,
                  default_tag: str,
                  label_vocab: Vocab,
                  lexicon_tree: Trie,
@@ -192,11 +181,9 @@ class FTLoaderV4DataSet(Dataset):
 
         ids = self.tokenizer(''.join(text))
 
-        tag_length = 1
-
         cur_length = len(ids["input_ids"])
-        offset:int = self.max_seq_length
-        padding = tag_length + 2
+        offset = self.max_seq_length
+        padding = self.max_tag_length + 2
 
         max_padding = 512
 
@@ -227,7 +214,7 @@ class FTLoaderV4DataSet(Dataset):
         # [512 / 7] * 4
         index_length = math.ceil(
             (max_padding - self.max_seq_length) /
-            (3 + tag_length)) * tag_length
+            (3 + self.max_tag_length)) * self.max_tag_length
         # index_length = 300
 
         indexes = torch.zeros(4 * self.max_seq_length, dtype=np.int)
@@ -235,7 +222,7 @@ class FTLoaderV4DataSet(Dataset):
         cur_length = offset
         count = 0
         for i in range(self.max_seq_length):
-            prompt_text = list(f"{i}是") + ["[MASK]"] * tag_length + [
+            prompt_text = list(f"{i}是") + ["[MASK]"] * self.max_tag_length + [
                 ","
             ]
             if cur_length + len(prompt_text) >= max_padding:
@@ -256,9 +243,9 @@ class FTLoaderV4DataSet(Dataset):
                 indexes[index_offset] = count * max_padding + j
                 index_offset += 1
 
-            char_label = self.tag_rules_to_unused[
+            char_label = self.tag_rules[
                 label[i - 1].split("-")
-                [-1]] if i != 0 and i - 1 < len(text) else self.tag_rules_to_unused[self.default_tag]
+                [-1]] if i != 0 and i - 1 < len(text) else self.tag_rules["O"]
 
             current["prompt_input_ids"][cur_length:cur_length +
                                         len(prompt_text)] = torch.tensor(
@@ -269,26 +256,24 @@ class FTLoaderV4DataSet(Dataset):
             current["prompt_attention_mask"][cur_length:cur_length +
                                              len(prompt_text)] = torch.tensor(
                                                  [1] * (len(str(i)) + 1) +
-                                                 [0] * tag_length +
+                                                 [0] * self.max_tag_length +
                                                  [1],
                                                  dtype=torch.int)
-            mask_label_ids = [char_label]
-            try:
-                current["prompt_labels"][cur_length:cur_length +
+            mask_label_ids = self.tokenizer.convert_tokens_to_ids(
+                list(char_label))
+            current["prompt_labels"][cur_length:cur_length +
                                      len(prompt_text)] = torch.tensor(
                                          [-100] * (len(str(i)) + 1) +
                                          mask_label_ids + [0] *
-                                         (tag_length -
+                                         (self.max_tag_length -
                                           len(mask_label_ids)) + [-100],
                                          dtype=torch.int)
-            except TypeError as e:
-                print(mask_label_ids)
-                raise e
+
             current["prompt_origin_labels"][
                 cur_length:cur_length + len(prompt_text)] = torch.tensor(
                     self.tokenizer.convert_tokens_to_ids(list(str(i) + '是')) +
                     mask_label_ids + [0] *
-                    (tag_length - len(mask_label_ids)) +
+                    (self.max_tag_length - len(mask_label_ids)) +
                     self.tokenizer.convert_tokens_to_ids([","]))
 
             cur_length += len(prompt_text)
