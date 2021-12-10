@@ -61,18 +61,18 @@ class NERPredict(IPredict):
 
         if torch.cuda.is_available() and self.use_gpu:
             bert_dict = torch.load(self.bert_model_file)
-            if isinstance(bert_dict,nn.DataParallel):
+            if isinstance(bert_dict, nn.DataParallel):
                 bert_dict = bert_dict.module.state_dict()
             self.model.load_state_dict(bert_dict)
             self.birnncrf = torch.load(self.lstm_crf_model_file).cuda()
-            if torch.cuda.device_count() > 1 and len(self.num_gpus)>0:
+            if torch.cuda.device_count() > 1 and len(self.num_gpus) > 0:
                 self.model = nn.DataParallel(
                     self.model, device_ids=self.num_gpus)
                 self.birnncrf = self.birnncrf.cuda()
         else:
             bert_dict = torch.load(
                 self.bert_model_file, map_location="cpu")
-            if isinstance(bert_dict,nn.DataParallel):
+            if isinstance(bert_dict, nn.DataParallel):
                 bert_dict = bert_dict.module.state_dict()
             self.model.load_state_dict(bert_dict)
             self.birnncrf = torch.load(
@@ -131,7 +131,7 @@ class NERPredict(IPredict):
             for sentence in sentences:
                 new_sentence.append(list(sentence))
                 it = self.dataloader.loader.myData_test.convert_embedding(
-                    {"text": new_sentence[-1]}, to_tensor=False, return_dict=True)
+                    {"text": new_sentence[-1]}, return_dict=True)
                 for key in it.keys():
                     if key not in batch:
                         batch[key] = []
@@ -139,7 +139,9 @@ class NERPredict(IPredict):
             it = batch
             with torch.no_grad():
                 for key in it.keys():
-                    it[key] = self.cuda(torch.tensor(it[key]))
+                    if isinstance(it[key], list):
+                        it[key] = torch.stack(it[key])
+                    it[key] = self.cuda(it[key])
                 outputs = self.model(**it)
                 hidden_states = outputs['mix_output']
                 pred = self.birnncrf(
