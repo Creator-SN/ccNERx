@@ -1,6 +1,7 @@
 import os
 import re
 import uuid
+from seqeval.metrics.sequence_labeling import classification_report
 import torch
 import numpy as np
 import torch.nn as nn
@@ -96,7 +97,7 @@ class NERTrainer(ITrainer):
             self.dm = result['dm']
             self.tag_size = len(self.dm.tag_to_idx)
             self.analysis = CCAnalysis(self.dm.tagToIdx, self.dm.idxToTag)
-        
+
         if self.loader_name == 'labelle_loader':
             self.vocab_embedding = result['vocab_embedding']
             self.embedding_dim = result['embedding_dim']
@@ -106,7 +107,7 @@ class NERTrainer(ITrainer):
             self.tag_size = self.tag_vocab.__len__()
             self.analysis = CCAnalysis(
                 self.tag_vocab.token2id, self.tag_vocab.id2token)
-        
+
         if self.loader_name == 'm_labelle_loader':
             self.vocab_embedding = result['vocab_embedding']
             self.embedding_dim = result['embedding_dim']
@@ -116,7 +117,7 @@ class NERTrainer(ITrainer):
             self.tag_size = self.tag_vocab.__len__()
             self.analysis = CCAnalysis(
                 self.tag_vocab.token2id, self.tag_vocab.id2token)
-        
+
         if self.loader_name == 'ft_loader_v1':
             self.vocab_embedding = result['vocab_embedding']
             self.embedding_dim = result['embedding_dim']
@@ -132,7 +133,7 @@ class NERTrainer(ITrainer):
             self.eval_iter = result['eval_iter']
 
     def train(self, resume_path=False, resume_step=False, lr1=2e-5, lr2=1e-3, eval_call_epoch=None):
-        
+
         optimizer = optim.AdamW([
             {'params': self.model.parameters(), 'lr': lr1},
             {'params': self.birnncrf.parameters(), 'lr': lr2}
@@ -171,6 +172,8 @@ class NERTrainer(ITrainer):
             all_p_list = []
             all_r_list = []
             all_f1_list = []
+            all_preds = []
+            all_trues = []
             for it in train_iter:
                 pred_labels_list = []
                 true_labels_list = []
@@ -178,13 +181,6 @@ class NERTrainer(ITrainer):
                 train_step += 1
 
                 for key in it.keys():
-                    # temp_list = it[key].tolist()
-                    # temp = []
-                    # for item in temp_list:
-                    #     temp.append(item[:])
-                    #     temp.append(item[:])
-                    # it[key] = temp
-                    # it[key] = self.cuda(torch.tensor(it[key]))
                     it[key] = self.cuda(it[key])
 
                 outputs = self.model(**it)
@@ -202,27 +198,27 @@ class NERTrainer(ITrainer):
                 train_loss += loss.data.item()
                 train_count += 1
 
-                pred = self.birnncrf(hidden_states, it['input_ids'].gt(0))[1]
+                preds = self.birnncrf(hidden_states, it['input_ids'].gt(0))[1]
 
-                for item_index in range(it["input_ids"].shape[0]):
-                    # remove [PAD] length
-                    real_length = 0
-                    for idx in range(it['input_ids'][item_index].shape[0]-1, -1, -1):
-                        if it["input_ids"][item_index][idx] > 0:
-                            real_length = idx+1
-                            break
+                for input_ids, pred, labels in zip(it["input_ids"], preds, it["labels"]):
+                    remove_pads = input_ids.gt(0)
                     # remove [SEP] and [CLS]
-                    pred_labels = pred[item_index][1:real_length-1]
-                    true_labels = it['labels'][item_index].tolist()[
-                        1:real_length-1]
+                    pred_labels = pred[1:-1]
+                    true_labels = labels[remove_pads][1:-1].tolist()
+
+                    assert len(pred_labels)==len(true_labels)
+
 
                     pred_labels = [label.replace(
                         "M-", "I-") for label in self.analysis.idx2tag(pred_labels)]
                     true_labels = [label.replace(
                         "M-", "I-") for label in self.analysis.idx2tag(true_labels)]
-                    
+
                     pred_labels_list.append(pred_labels)
                     true_labels_list.append(true_labels)
+
+                all_preds += pred_labels_list
+                all_trues += true_labels_list
 
                 acc = accuracy_score(true_labels_list, pred_labels_list)
                 p = precision_score(
@@ -244,12 +240,18 @@ class NERTrainer(ITrainer):
                     'Epoch: {}/{} Train'.format(epoch + 1, self.num_epochs))
                 train_iter.set_postfix(train_loss=train_loss / train_count, train_acc=train_acc, train_precision=train_precision,
                                        train_recall=train_recall, F1=F1)
+
+            reports = self.__format_dict(classification_report(
+                all_trues, all_preds, output_dict=True))
+            print("train_reports:")
+            print(classification_report(all_trues,all_preds))
+
             self.analysis.append_train_record({
                 'loss': loss.data.item(),
-                # 'f1': (2 * train_acc * train_recall) / (train_acc + train_recall + alpha),
                 'f1': F1,
                 'acc': train_precision,
-                'recall': train_recall
+                'recall': train_recall,
+                'reports': reports
             })
 
             model_uid = self.save_model(train_step)
@@ -259,10 +261,10 @@ class NERTrainer(ITrainer):
                 else:
                     self.analysis.append_eval_record({
                         'loss': 'skip',
-                        # 'f1': (2 * test_acc * test_recall) / (test_acc + test_recall + alpha),
                         'f1': 'skip',
                         'acc': 'skip',
-                        'recall': 'skip'
+                        'recall': 'skip',
+                        'reports': {}
                     })
 
             self.analysis.save_ner_record(
@@ -281,6 +283,8 @@ class NERTrainer(ITrainer):
             all_p_list = []
             all_r_list = []
             all_f1_list = []
+            all_preds = []
+            all_trues = []
             for it in test_iter:
                 pred_labels_list = []
                 true_labels_list = []
@@ -297,19 +301,17 @@ class NERTrainer(ITrainer):
                 eval_loss += loss.data.item()
                 test_count += 1
 
-                pred = self.birnncrf(hidden_states, it['input_ids'].gt(0))[1]
+                preds = self.birnncrf(hidden_states, it['input_ids'].gt(0))[1]
 
-                for item_index in range(it["input_ids"].shape[0]):
-                    # remove [PAD] length
-                    real_length = 0
-                    for idx in range(it['input_ids'][item_index].shape[0]-1, -1, -1):
-                        if it["input_ids"][item_index][idx] > 0:
-                            real_length = idx+1
-                            break
+                for input_ids, pred, labels in zip(it["input_ids"], preds, it["labels"]):
+
+                    remove_pads = input_ids.gt(0)
                     # remove [SEP] and [CLS]
-                    pred_labels = pred[item_index][1:real_length-1]
-                    true_labels = it['labels'][item_index].tolist()[
-                        1:real_length-1]
+                    pred_labels = pred[1:-1]
+                    true_labels = labels[remove_pads][1:-1].tolist()
+
+                    assert len(pred_labels)==len(true_labels)
+
                     pred_labels = [label.replace(
                         "M-", "I-") for label in self.analysis.idx2tag(pred_labels)]
                     true_labels = [label.replace(
@@ -317,6 +319,9 @@ class NERTrainer(ITrainer):
 
                     pred_labels_list.append(pred_labels)
                     true_labels_list.append(true_labels)
+
+                all_preds += pred_labels_list
+                all_trues += true_labels_list
 
                 acc = accuracy_score(true_labels_list, pred_labels_list)
                 p = precision_score(
@@ -334,25 +339,31 @@ class NERTrainer(ITrainer):
                 test_recall = np.mean(all_r_list)
                 F1 = np.mean(all_f1_list)
 
-                # t1, t2 = self.analysis.getPrecision(it['labels'], pred)
-                # test_pred_num += t1
-                # test_correct_num += t2
-                # test_gold_num += self.analysis.getRecall(it['labels'])
-
-                # test_acc = test_correct_num / test_pred_num if test_pred_num != 0 else 0
-                # test_recall = test_correct_num / test_gold_num if test_gold_num != 0 else 0
-
                 test_iter.set_description('Eval Result')
                 test_iter.set_postfix(
                     eval_loss=eval_loss / test_count, eval_acc=test_acc, eval_precision=test_precision, eval_recall=test_recall, F1=F1)
-                #   F1=(2 * test_acc * test_recall) / (test_acc + test_recall + alpha))
+
+            reports = self.__format_dict(classification_report(
+                all_trues, all_preds, output_dict=True))
+            print("eval_reports:")
+            print(classification_report(all_trues,all_preds))
+
             self.analysis.append_eval_record({
                 'loss': loss.data.item(),
-                # 'f1': (2 * test_acc * test_recall) / (test_acc + test_recall + alpha),
                 'f1': F1,
                 'acc': test_precision,
-                'recall': test_recall
+                'recall': test_recall,
+                "reports": reports
             })
+
+    def __format_dict(self,d):
+        if isinstance(d,dict):
+            for k in d:
+                d[k] = self.__format_dict(d[k])
+            return d
+        else:
+            return d.item()
+            
 
     def save_model(self, current_step=0):
         if self.task_name is None:

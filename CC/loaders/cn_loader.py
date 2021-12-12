@@ -108,8 +108,8 @@ class CNDataLoader(IDataLoader):
     def process_data(self, padding_length, batch_size, eval_batch_size):
         eval_batch_size = batch_size if eval_batch_size is None else eval_batch_size
         self.myData = CNDataset(
-            self.train_set, self.train_tags, self.dm, padding_length, self.do_shuffle)
-        self.dataiter = DataLoader(self.myData, batch_size=batch_size)
+            self.train_set, self.train_tags, self.dm, padding_length)
+        self.dataiter = DataLoader(self.myData, batch_size=batch_size,shuffle=self.do_shuffle)
         if self.output_eval:
             self.myData_eval = CNDataset(
                 self.eval_set, self.eval_tags, self.dm, padding_length)

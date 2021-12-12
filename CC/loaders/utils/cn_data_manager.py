@@ -2,6 +2,8 @@ import re
 import json
 import random
 
+from collections import Iterable
+
 class DataManager():
 
     def __init__(self, tags_list, vocab_file_name=None, sentences=None, pad_tag='[PAD]'):
@@ -19,17 +21,23 @@ class DataManager():
     
     def idxToWord(self, idx):
         try:
+            if isinstance(idx,list):
+                return list(self.idxToWord(i) for i in idx)
             return self.idx_to_word[idx]
         except:
             return '[UNK]'
     
     def tagToIdx(self, tag):
         try:
+            if isinstance(tag,list):
+                return list(self.tagToIdx(i) for i in tag)
             return self.tag_to_idx[tag]
         except:
             return 0
     
     def idxToTag(self, idx):
+        if isinstance(idx,list):
+            return list(self.idxToTag(i) for i in idx)
         return self.idx_to_tag[idx]
     
     def encode(self, sentence, tags, pad_tag='[PAD]', padding_length=100):
