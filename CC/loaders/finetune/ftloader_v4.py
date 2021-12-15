@@ -21,27 +21,27 @@ class FTLoaderV4(IDataLoader):
     def __init__(self, **args):
         KwargsParser(debug=True) \
             .add_argument("batch_size", int, defaultValue=4) \
-            .add_argument("eval_batch_size",int,defaultValue=64) \
-            .add_argument("test_batch_size",int,defaultValue=64) \
+            .add_argument("eval_batch_size", int, defaultValue=64) \
+            .add_argument("test_batch_size", int, defaultValue=64) \
             .add_argument("train_file", str) \
-            .add_argument("eval_file",str) \
-            .add_argument("test_file",str) \
+            .add_argument("eval_file", str) \
+            .add_argument("test_file", str) \
             .add_argument("tag_file", str) \
             .add_argument("bert_vocab_file", str) \
-            .add_argument("word_vocab_file",str) \
-            .add_argument("word_embedding_file",str) \
+            .add_argument("word_vocab_file", str) \
+            .add_argument("word_embedding_file", str) \
             .add_argument("max_seq_length", int, defaultValue=256) \
             .add_argument("do_shuffle", bool, defaultValue=False) \
             .add_argument("task_name", str) \
             .add_argument("tag_rules", dict) \
             .add_argument("debug", bool, defaultValue=False) \
             .add_argument("pass_none_rule", bool, defaultValue=False) \
-            .add_argument("default_tag",str,defaultValue="O") \
-            .add_argument("max_scan_num",int,defaultValue=1000000) \
-            .add_argument("max_word_num",int,defaultValue=5) \
-            .add_argument("add_seq_vocab",bool,defaultValue=False) \
-            .add_argument("use_test",bool,defaultValue=False) \
-            .add_argument("output_eval",bool,defaultValue=True) \
+            .add_argument("default_tag", str, defaultValue="O") \
+            .add_argument("max_scan_num", int, defaultValue=1000000) \
+            .add_argument("max_word_num", int, defaultValue=5) \
+            .add_argument("add_seq_vocab", bool, defaultValue=False) \
+            .add_argument("use_test", bool, defaultValue=False) \
+            .add_argument("output_eval", bool, defaultValue=True) \
             .parse(self, **args)
 
         # get cache_key
@@ -112,9 +112,9 @@ class FTLoaderV4(IDataLoader):
                                             self.tag_vocab,
                                             self.lexicon_tree,
                                             self.max_word_num,
-                                            self.word_vocab,
-                                            do_shuffle=self.do_shuffle)
-            self.dataiter = DataLoader(self.myData, batch_size=self.batch_size)
+                                            self.word_vocab)
+            self.dataiter = DataLoader(self.myData, batch_size=self.batch_size,
+                                       shuffle=self.do_shuffle)
             if self.output_eval:
                 self.myData_eval = FTLoaderV4DataSet(
                     self.eval_file,
