@@ -25,6 +25,7 @@ class NERPredict(IPredict):
             .add_argument("bert_vocab_file", str) \
             .add_argument("bert_config_file_name", str) \
             .add_argument("tag_file", str) \
+            .add_argument("max_seq_length",int) \
             .add_argument("padding_length", int, 512) \
             .add_argument("num_gpus", list, [0]) \
             .parse(self, **args)
@@ -143,7 +144,7 @@ class NERPredict(IPredict):
             batch = {}
             new_sentence = []
             for sentence in sentences:
-                new_sentence.append(list(sentence))
+                new_sentence.append(list(sentence[:self.max_seq_length-2]))
                 it = self.dataloader.loader.myData_test.convert_embedding(
                     {"text": new_sentence[-1]}, return_dict=True)
                 for key in it.keys():
