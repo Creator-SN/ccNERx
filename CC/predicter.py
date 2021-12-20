@@ -81,25 +81,6 @@ class NERPredict(IPredict):
         self.model.eval()
         self.birnncrf.eval()
 
-    # def data_process(self, sentences):
-    #     result = []
-    #     pad_tag = '[PAD]'
-    #     if type(sentences) == str:
-    #         sentences = [sentences]
-    #     max_len = 0
-    #     for sentence in sentences:
-    #         encode = self.tokenizer.encode(
-    #             sentence, add_special_tokens=True, max_length=self.padding_length, truncation=True)
-    #         result.append(encode)
-    #         if max_len < len(encode):
-    #             max_len = len(encode)
-
-    #     for i, sentence in enumerate(result):
-    #         remain = max_len - len(sentence)
-    #         for _ in range(remain):
-    #             result[i].append(self.dm.wordToIdx(pad_tag))
-    #     return torch.tensor(result)
-
     def cuda(self, inputX):
         if type(inputX) == tuple:
             if torch.cuda.is_available() and self.use_gpu:
@@ -113,7 +94,40 @@ class NERPredict(IPredict):
                 return inputX.cuda()
             return inputX
 
-    def pred(self, sentences, return_dict: bool = False):
+    def p(self,sentences):
+        device = None
+        if self.use_gpu:
+            device = torch.device(
+                "cuda:0" if torch.cuda.is_available() else "cpu")
+        else:
+            device = torch.device("cpu")
+
+        self.model.to(device)
+        self.birnncrf.to(device)
+
+        if self.loader_name == "le_loader":
+            batch = {}
+            new_sentence = []
+            for sentence in sentences:
+                new_sentence.append(list(sentence))
+                it = self.dataloader.loader.myData_test.convert_embedding(
+                    {"text": new_sentence[-1]}, return_dict=True)
+                for key in it.keys():
+                    if key not in batch:
+                        batch[key] = []
+                    batch[key].append(it[key])
+            it = batch
+            with torch.no_grad():
+                for key in it.keys():
+                    if isinstance(it[key], list):
+                        it[key] = torch.stack(it[key])
+                    it[key] = self.cuda(it[key])
+                outputs = self.model(**it)
+                hidden_states = outputs['mix_output']
+                return hidden_states,it['input_ids'].gt(0)
+
+
+    def pred(self, sentences, return_dict: bool = False,output_logits:bool = False):
         # sentences = self.data_process(sentences)
         device = None
         if self.use_gpu:
@@ -144,12 +158,16 @@ class NERPredict(IPredict):
                     it[key] = self.cuda(it[key])
                 outputs = self.model(**it)
                 hidden_states = outputs['mix_output']
-                pred = self.birnncrf(
-                    hidden_states, it['input_ids'].gt(0))[1]
+                logits,pred = self.birnncrf(
+                    hidden_states, it['input_ids'].gt(0))
                 pred_tags = [self.analysis.idx2tag(it)[1:-1] for it in pred]
                 if not return_dict:
+                    if output_logits:
+                        return list(zip(new_sentence,pred_tags)),logits
                     return list(zip(new_sentence, pred_tags))
                 else:
+                    if output_logits:
+                        return [dict(zip(sentence, tags)) for sentence, tags in zip(new_sentence, pred_tags)],logits
                     return [dict(zip(sentence, tags)) for sentence, tags in zip(new_sentence, pred_tags)]
         else:
             # TODO: implement cn_loader

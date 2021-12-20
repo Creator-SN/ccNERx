@@ -1,14 +1,14 @@
 from CC.loaders.utils import *
-from torch.utils.data import  DataLoader, Dataset
+from torch.utils.data import TensorDataset, DataLoader, Dataset
 from torch import tensor
 from transformers import BertTokenizer
 from tqdm import *
 from typing import *
-from CC.loaders.utils.label import get_labels
 from ICCSupervised.ICCSupervised import IDataLoader
 import json
 import numpy as np
 import random
+from distutils.util import strtobool
 
 
 class LXLoader(IDataLoader):
@@ -52,9 +52,25 @@ class LXLoader(IDataLoader):
         self.verify_data()
         self.process_data()
 
+    def __restore_attr(self, attr_name: str, construct, restore_path: str = None):
+        if restore_path is None:
+            # If the restore path is not set, directly construct
+            setattr(self, attr_name, construct())
+        else:
+            # If restore file exists, restore it
+            if os.path.exists(restore_path):
+                with open(restore_path, "rb") as f:
+                    setattr(self, attr_name, pickle.load(f))
+            else:
+                obj = construct()
+                setattr(self, attr_name, obj)
+                # save cache file for restore
+                with open(restore_path, "wb") as f:
+                    pickle.dump(obj, f)
+        return self
+
     def read_data_set(self):
         self.data_files = [self.train_file, self.eval_file, self.test_file]
-        
         cache = self.cache.group(self.max_scan_num)
         # loading lexicon tree
         self.lexicon_tree = cache.load("lexicon_tree",lambda: TrieFactory.get_trie_from_vocabs(
@@ -144,28 +160,43 @@ class LEXBertDataSet(Dataset):
             if "label" not in item:
                 raise KeyError(f"key label not exists in item: {item}")
             # resolve prompt
-
             prompts = []
             prompt_masks = []
             prompt_tags = []
             prompt_origins = []
-            exist_entity = set()
-            entity_collections = get_entities(item["label"], item["text"])
-            for _, _, label, word in entity_collections:
-                # skip S-
-                if len(word)==1:
-                    continue
+            word = []
+            labels = []
+            exists_entity = set()
+            for ch, label in zip(item["text"], item["label"]):
+                if label != self.default_tag:
+                    if label.startswith('B-'):
+                        if len(word) != 0:
+                            prompt, prompt_mask, prompt_tag, prompt_origin = self.tag_convert.tag2prompt(
+                                labels, word)
+                            if prompt is None:
+                                continue
+                            key = hash(str(prompt_origin))
+                            if key not in exists_entity:
+                                exists_entity.add(key)
+                                prompts.append(prompt)
+                                prompt_masks.append(prompt_mask)
+                                prompt_tags.append(prompt_tag)
+                                prompt_origins.append(prompt_origin)
+                            word = []
+                            labels = []
+                    word.append(ch)
+                    labels.append(label)
+            if len(word) != 0:
                 prompt, prompt_mask, prompt_tag, prompt_origin = self.tag_convert.tag2prompt(
-                    get_labels(label, len(word)), word)
-                if prompt is None:
-                    continue
-                key = hash(str(prompt_origin))
-                if key not in exist_entity:
-                    exist_entity.add(key)
-                    prompts.append(prompt)
-                    prompt_masks.append(prompt_mask)
-                    prompt_tags.append(prompt_tag)
-                    prompt_origins.append(prompt_origin)
+                    labels, word)
+                if prompt is not None:
+                    key = hash(str(prompt_origin))
+                    if key not in exists_entity:
+                        exists_entity.add(key)
+                        prompts.append(prompt)
+                        prompt_masks.append(prompt_mask)
+                        prompt_tags.append(prompt_tag)
+                        prompt_origins.append(prompt_origin)
             # resolve input
             text = ["[CLS]"] + item["text"][:self.max_seq_length-2]+["[SEP]"]
             origin_text = text[:]
@@ -187,25 +218,12 @@ class LEXBertDataSet(Dataset):
                     if prompt is None:
                         continue
                     key = hash(str(prompt_origin))
-                    if key not in exist_entity:
-                        exist_entity.add(key)
+                    if key not in exists_entity:
+                        exists_entity.add(key)
                         prompts.append(prompt)
                         prompt_masks.append(prompt_mask)
                         prompt_tags.append(prompt_tag)
                         prompt_origins.append(prompt_origin)
-
-            # for words in matched_words:
-            #     for word in words:
-            #         tag = self.word_vocab.tag(word)
-            #         if tag[0] == self.default_tag and len(word)>1:
-            #             prompt, prompt_mask, prompt_tag, prompt_origin = self.tag_convert.word2prompt(word)
-            #             key = hash(str(prompt_origin))
-            #             if key not in exist_prompt:
-            #                 exist_prompt.add(key)
-            #                 prompts.append(prompt)
-            #                 prompt_masks.append(prompt_mask)
-            #                 prompt_tags.append(prompt_tag)
-            #                 prompt_origins.append(prompt_origin)
 
             label = [self.default_tag] + \
                 item["label"][:self.max_seq_length-2]+[self.default_tag]
@@ -216,9 +234,7 @@ class LEXBertDataSet(Dataset):
                     label += prompt_tag
                     mask += prompt_mask
                     origin_text += prompt_origin
-            # replace last [SEP]
-            text[-1] = "[SEP]"
-            origin_text[-1] = "[SEP]"
+
             # convert to ids
             token_ids = self.tokenizer.convert_tokens_to_ids(text)
             label_ids = self.tag_vocab.token2id(label)

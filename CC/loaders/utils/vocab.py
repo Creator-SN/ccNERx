@@ -107,9 +107,10 @@ class Vocab():
         assert self.item2idx is not None
         assert self.idx2item is not None
         assert self.size is not None and type(self.size) == int
-        self.item2idx[token] = self.size
-        self.idx2item.append(token)
-        self.size += 1
+        if token not in self.item2idx:
+            self.item2idx[token] = self.size
+            self.idx2item.append(token)
+            self.size += 1
         return self
 
     def __len__(self):

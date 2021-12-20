@@ -79,7 +79,7 @@ loader = FTLoaderV1(**args)
 #%%
 old_loader = LXLoader(**args)
 
-from CC.loaders.lex_loader_new import *
+from CC.loaders.lex_loader import *
 new_loader = LXLoader(**args)
 
 #%%

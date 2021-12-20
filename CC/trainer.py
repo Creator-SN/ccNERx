@@ -132,7 +132,7 @@ class NERTrainer(ITrainer):
             self.eval_set = result['eval_set']
             self.eval_iter = result['eval_iter']
 
-    def train(self, resume_path=False, resume_step=False, lr1=2e-5, lr2=1e-3, eval_call_epoch=None):
+    def  train(self, resume_path=False, resume_step=False, lr1=2e-5, lr2=1e-2, eval_call_epoch=None):
 
         optimizer = optim.AdamW([
             {'params': self.model.parameters(), 'lr': lr1},

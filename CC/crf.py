@@ -41,7 +41,7 @@ class CRF(nn.Module):
             best_score: [B]
             best_paths: [B, L]
         """
-        features = self.fc(features)
+        features = self.fc(features) # [B,L,C] => [B,L,T]
         return self.__viterbi_decode(features, masks[:, :features.size(1)].float())
 
     def loss(self, features, ys, masks):
@@ -56,7 +56,7 @@ class CRF(nn.Module):
 
         L = features.size(1)
         masks_ = masks[:, :L].float()
-
+        
         forward_score = self.__forward_algorithm(features, masks_)
         gold_score = self.__score_sentence(features, ys[:, :L].long(), masks_)
         loss = (forward_score - gold_score).mean()
@@ -99,6 +99,7 @@ class CRF(nn.Module):
         bps = torch.zeros(B, L, C, dtype=torch.long, device=features.device)  # back pointers
 
         # Initialize the viterbi variables in log space
+
         max_score = torch.full((B, C), IMPOSSIBLE, device=features.device)  # [B, C]
         max_score[:, self.start_idx] = 0
 
