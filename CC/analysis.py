@@ -1,5 +1,6 @@
 import os
 from ICCSupervised.ICCSupervised import IAnalysis
+import json
 
 class CCAnalysis(IAnalysis):
 
@@ -8,15 +9,19 @@ class CCAnalysis(IAnalysis):
             'loss': [],
             'f1': [],
             'acc': [],
-            'recall': []
+            'recall': [],
+            'reports' : []
         }
+
 
         self.eval_record = {
             'loss': [],
             'f1': [],
             'acc': [],
-            'recall': []
+            'recall': [],
+            'reports': []
         }
+
 
         self.model_record = []
 
@@ -69,21 +74,37 @@ class CCAnalysis(IAnalysis):
         return gold_num
     
     def save_ner_record(self, uid):
-        if not os.path.exists('./data_record'):
-            os.makedirs('./data_record')
-        with open('./data_record/{}_train.csv'.format(uid), encoding='utf-8', mode='w+') as f:
+        path = f'./data_record/{uid}'
+        if not os.path.exists(path):
+            os.makedirs(path)
+        with open(f'{path}/train.csv', encoding='utf-8', mode='w+') as f:
             result = 'F1,Acc,Recall,loss\n'
             for i, item in enumerate(self.train_record['loss']):
                 result += '{},{},{},{}\n'.format(self.train_record['f1'][i], self.train_record['acc'][i], self.train_record['recall'][i], self.train_record['loss'][i])
             f.write(result)
         
-        with open('./data_record/{}_eval.csv'.format(uid), encoding='utf-8', mode='w+') as f:
+        if not os.path.exists(f"{path}/train_reports"):
+            os.makedirs(f"{path}/train_reports")
+
+        # save reports
+        for i,r in enumerate(self.train_record['reports']):
+            with open(f"{path}/train_reports/{i+1}_epoch.json",encoding='utf-8',mode="w") as f:
+                f.write(json.dumps(r,ensure_ascii=False,indent=2))
+        
+        with open(f'{path}/eval.csv', encoding='utf-8', mode='w+') as f:
             result = 'F1,Acc,Recall,loss\n'
             for i, item in enumerate(self.eval_record['loss']):
                 result += '{},{},{},{}\n'.format(self.eval_record['f1'][i], self.eval_record['acc'][i], self.eval_record['recall'][i], self.eval_record['loss'][i])
             f.write(result)
+
+        if not os.path.exists(f"{path}/eval_reports"):
+            os.makedirs(f"{path}/eval_reports")
+
+        for i,r in enumerate(self.eval_record['reports']):
+            with open(f"{path}/eval_reports/{i+1}_epoch.json",encoding='utf-8',mode="w") as f:
+                f.write(json.dumps(r,ensure_ascii=False,indent=2))
         
-        with open('./data_record/{}_model.csv'.format(uid), encoding='utf-8', mode='w+') as f:
+        with open(f'{path}/model.csv', encoding='utf-8', mode='w+') as f:
             result = 'model_uid\n'
             for i, item in enumerate(self.model_record):
                 result += '{}\n'.format(item)

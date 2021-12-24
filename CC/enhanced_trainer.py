@@ -12,7 +12,7 @@ from ICCSupervised.ICCSupervised import ITrainer
 from CC.dataloader import AutoDataLoader
 from CC.analysis import CCAnalysis
 from CC.model import CCNERModel
-from seqeval.metrics import f1_score, precision_score, recall_score, accuracy_score
+from seqeval.metrics import f1_score, precision_score, recall_score, accuracy_score,classification_report
 
 
 class EnhancedNERTrainer(ITrainer):
@@ -149,6 +149,8 @@ class EnhancedNERTrainer(ITrainer):
             all_p_list = []
             all_r_list = []
             all_f1_list = []
+            all_preds = []
+            all_trues = []
             for it in train_iter:
                 pred_labels_list = []
                 true_labels_list = []
@@ -197,28 +199,28 @@ class EnhancedNERTrainer(ITrainer):
                 train_loss += loss.data.item()
                 train_count += 1
 
-                pred = self.birnncrf(hidden_states, prompt_entity_hs_fusion, it['input_ids'].gt(0))[1]
+                preds = self.birnncrf(hidden_states, prompt_entity_hs_fusion, it['input_ids'].gt(0))[1]
 
-                for item_index in range(it["input_ids"].shape[0]):
-                    # remove [PAD] length
-                    real_length = 0
-                    for idx in range(it['input_ids'][item_index].shape[0]-1, -1, -1):
-                        if it["input_ids"][item_index][idx] > 0:
-                            real_length = idx+1
-                            break
+                for input_ids, pred, labels in zip(it["input_ids"], preds, it["labels"]):
+                    remove_pads = input_ids.gt(0)
                     # remove [SEP] and [CLS]
-                    pred_labels = pred[item_index][1:real_length-1]
-                    true_labels = it['labels'][item_index].tolist()[
-                        1:real_length-1]
+                    pred_labels = pred[1:-1]
+                    true_labels = labels[remove_pads][1:-1].tolist()
+
+                    assert len(pred_labels)==len(true_labels)
+
 
                     pred_labels = [label.replace(
                         "M-", "I-") for label in self.analysis.idx2tag(pred_labels)]
                     true_labels = [label.replace(
                         "M-", "I-") for label in self.analysis.idx2tag(true_labels)]
-                    
+
                     pred_labels_list.append(pred_labels)
                     true_labels_list.append(true_labels)
-                
+
+                all_preds += pred_labels_list
+                all_trues += true_labels_list
+
                 acc = accuracy_score(true_labels_list, pred_labels_list)
                 p = precision_score(
                     true_labels_list, pred_labels_list)
@@ -239,11 +241,18 @@ class EnhancedNERTrainer(ITrainer):
                     'Epoch: {}/{} Train'.format(epoch + 1, self.num_epochs))
                 train_iter.set_postfix(train_loss=train_loss / train_count, train_acc=train_acc, train_precision=train_precision,
                                        train_recall=train_recall, F1=F1)
+
+            reports = self.__format_dict(classification_report(
+                all_trues, all_preds, output_dict=True))
+            print("train_reports:")
+            print(classification_report(all_trues,all_preds))
+
             self.analysis.append_train_record({
                 'loss': loss.data.item(),
                 'f1': F1,
                 'acc': train_precision,
-                'recall': train_recall
+                'recall': train_recall,
+                'reports': reports
             })
 
             model_uid = self.save_model(train_step)
@@ -253,10 +262,10 @@ class EnhancedNERTrainer(ITrainer):
                 else:
                     self.analysis.append_eval_record({
                         'loss': 'skip',
-                        # 'f1': (2 * test_acc * test_recall) / (test_acc + test_recall + alpha),
                         'f1': 'skip',
                         'acc': 'skip',
-                        'recall': 'skip'
+                        'recall': 'skip',
+                        'reports': {}
                     })
 
             self.analysis.save_ner_record(
@@ -277,6 +286,8 @@ class EnhancedNERTrainer(ITrainer):
             all_p_list = []
             all_r_list = []
             all_f1_list = []
+            all_preds = []
+            all_trues = []
             for it in test_iter:
                 pred_labels_list = []
                 true_labels_list = []
@@ -315,28 +326,28 @@ class EnhancedNERTrainer(ITrainer):
                 eval_loss += loss.data.item()
                 test_count += 1
 
-                pred = self.birnncrf(hidden_states, prompt_entity_hs_fusion, it['input_ids'].gt(0))[1]
+                preds = self.birnncrf(hidden_states, prompt_entity_hs_fusion, it['input_ids'].gt(0))[1]
 
-                for item_index in range(it["input_ids"].shape[0]):
-                    # remove [PAD] length
-                    real_length = 0
-                    for idx in range(it['input_ids'][item_index].shape[0]-1, -1, -1):
-                        if it["input_ids"][item_index][idx] > 0:
-                            real_length = idx+1
-                            break
+                for input_ids, pred, labels in zip(it["input_ids"], preds, it["labels"]):
+
+                    remove_pads = input_ids.gt(0)
                     # remove [SEP] and [CLS]
-                    pred_labels = pred[item_index][1:real_length-1]
-                    true_labels = it['labels'][item_index].tolist()[
-                        1:real_length-1]
+                    pred_labels = pred[1:-1]
+                    true_labels = labels[remove_pads][1:-1].tolist()
+
+                    assert len(pred_labels)==len(true_labels)
 
                     pred_labels = [label.replace(
                         "M-", "I-") for label in self.analysis.idx2tag(pred_labels)]
                     true_labels = [label.replace(
                         "M-", "I-") for label in self.analysis.idx2tag(true_labels)]
-                    
+
                     pred_labels_list.append(pred_labels)
                     true_labels_list.append(true_labels)
-                
+
+                all_preds += pred_labels_list
+                all_trues += true_labels_list
+
                 acc = accuracy_score(true_labels_list, pred_labels_list)
                 p = precision_score(
                     true_labels_list, pred_labels_list)
@@ -356,14 +367,27 @@ class EnhancedNERTrainer(ITrainer):
                 test_iter.set_description('Eval Result')
                 test_iter.set_postfix(
                     eval_loss=eval_loss / test_count, eval_acc=test_acc, eval_precision=test_precision, eval_recall=test_recall, F1=F1)
-                #   F1=(2 * test_acc * test_recall) / (test_acc + test_recall + alpha))
+
+            reports = self.__format_dict(classification_report(
+                all_trues, all_preds, output_dict=True))
+            print("eval_reports:")
+            print(classification_report(all_trues,all_preds))
+
             self.analysis.append_eval_record({
                 'loss': loss.data.item(),
-                # 'f1': (2 * test_acc * test_recall) / (test_acc + test_recall + alpha),
                 'f1': F1,
                 'acc': test_precision,
-                'recall': test_recall
+                'recall': test_recall,
+                "reports": reports
             })
+    
+    def __format_dict(self,d):
+        if isinstance(d,dict):
+            for k in d:
+                d[k] = self.__format_dict(d[k])
+            return d
+        else:
+            return d.item()
 
     def save_model(self, current_step=0):
         if self.task_name is None:
