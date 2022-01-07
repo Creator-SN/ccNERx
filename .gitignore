@@ -4,6 +4,7 @@ model/
 save_model/
 save_pretrained/
 save_models/
+runs/
 data/
 data_record/**
 ner/bert/

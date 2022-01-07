@@ -162,9 +162,9 @@ class EnhancedNERTrainer(ITrainer):
                 
                 # [batch_size, 4, 512]
                 prompt_inputs = it['prompt_input_ids']
-                prompt_inputs = prompt_inputs.reshape(-1, 512) # [batch_size * 4, 512]
+                prompt_inputs = prompt_inputs.reshape(-1, 512) # [batch_size * 7, 512]
                 prompt_origin_labels = it['prompt_origin_labels']
-                prompt_origin_labels = prompt_origin_labels.reshape(-1, 512) # [batch_size * 4, 512]
+                prompt_origin_labels = prompt_origin_labels.reshape(-1, 512) # [batch_size * 7, 512]
                 prompt_attention_mask = prompt_origin_labels.gt(0)
                 prompt_indexed = []
                 for i in range(it['input_ids'].shape[0]):
@@ -172,9 +172,9 @@ class EnhancedNERTrainer(ITrainer):
                     prompt_indexed += it['prompt_indexes'][i]
                 
                 prompt_outputs = self.prompt_model(input_ids=prompt_inputs, attention_mask=prompt_attention_mask)
-                prompt_hidden_states = prompt_outputs.last_hidden_state # [batch_size * 4, 512, 768]
-                prompt_hidden_states = prompt_hidden_states * prompt_attention_mask.unsqueeze(-1).float() # [batch_size * 4, 512, 768]
-                prompt_hidden_states = prompt_hidden_states.reshape(-1, 768) # [batch_size * 4 * 512, 768]
+                prompt_hidden_states = prompt_outputs.last_hidden_state # [batch_size * 7, 512, 768]
+                prompt_hidden_states = prompt_hidden_states * prompt_attention_mask.unsqueeze(-1).float() # [batch_size * 7, 512, 768]
+                prompt_hidden_states = prompt_hidden_states.reshape(-1, 768) # [batch_size * 7 * 512, 768]
                 prompt_entity_hs = prompt_hidden_states[prompt_indexed] # [batch_size * max_seq_len * entity_pad_len(4), 768]
                 prompt_entity_hs = prompt_entity_hs.reshape(it['input_ids'].shape[0], -1, 4, 768) # [batch_size, max_seq_len, entity_pad_len(4), 768]
                 # prompt_entity_hs_fusion = torch.mean(prompt_entity_hs, dim=2) # [batch_size, max_seq_len, 768]
