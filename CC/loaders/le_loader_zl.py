@@ -37,7 +37,7 @@ class LLoader(IDataLoader):
             .add_argument("task_name", str) \
             .parse(self, **args)
 
-        # get cache_key 
+        #  get cache_key 
         files = [self.train_file,self.eval_file,self.test_file,self.tag_file] 
         self.cache_key = [FileReader(file).etag() if file is not None else "None" for file in files]
         self.cache_key = "_".join(self.cache_key)
@@ -70,7 +70,7 @@ class LLoader(IDataLoader):
         self.vocab_embedding,self.embedding_dim = cache.load("vocab_embedding",lambda: VocabEmbedding(self.word_vocab).build_from_file(
             self.word_embedding_file, self.max_scan_num, self.add_seq_vocab).get_embedding())
 
-        # 外部知识
+        # 外部知识inter_knowledge
         self.inter_knowledge = cache.load("inter_knowledge",lambda: Vocab().from_list(
             self.matched_words, is_word=True, has_default=False, unk_num=5))
 
