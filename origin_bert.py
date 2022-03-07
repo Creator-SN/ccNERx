@@ -5,7 +5,7 @@ import json
 from typing import Any
 import torch
 from torch.utils.data import Dataset
-from transformers.trainer_utils import EvalPrediction
+from transformers.trainer_utils import EvalPrediction, set_seed
 from transformers import BertTokenizer
 from torch import nn
 import os
@@ -15,12 +15,13 @@ from torch.utils.tensorboard import SummaryWriter
 import argparse
 
 parser = argparse.ArgumentParser(description="bert arguments")
-parser.add_argument("dataset",type=str)
-parser.add_argument("scale",type=int)
+parser.add_argument("dataset", type=str)
+parser.add_argument("scale", type=int)
 global_args = parser.parse_args()
 
+
 class SimpleDataset(Dataset):
-    def __init__(self, path, tokenizer: BertTokenizer, padding_length=256, tokens2ids: Any = None):
+    def __init__(self, path, tokenizer: BertTokenizer, padding_length=150, tokens2ids: Any = None):
         self.data = []
         with open(path, "r", encoding="utf-8") as f:
             for line in tqdm(f, desc=f"load {path}"):
@@ -43,11 +44,12 @@ class SimpleDataset(Dataset):
     def __len__(self):
         return len(self.data)
 
-report_path = f"data_record/{global_args.dataset}_bert_{global_args.scale}/"
+
+report_path = f"data_record/{global_args.dataset}_bert_150padding_{global_args.scale}/"
 
 args = {
-    "train_file": f"data/few_shot/{global_args.dataset}/train_{global_args.scale}.json",
-    "eval_file": f"data/few_shot/{global_args.dataset}/dev.json",
+    "train_file": f"data/few_shot/{global_args.dataset}/train_{global_args.scale}_split.json",
+    "eval_file": f"data/few_shot/{global_args.dataset}/dev_split.json",
     "tag_file": f"data/few_shot/{global_args.dataset}/labels.txt",
 }
 
@@ -76,34 +78,40 @@ train_arguments = TrainingArguments(
     no_cuda=False,
 )
 
-def generate_csv(path,data):
-    os.makedirs(path,exist_ok=True)
-    with open(os.path.join(path,"eval.csv"),"w",encoding="utf-8") as f:
+
+def generate_csv(path, data):
+    os.makedirs(path, exist_ok=True)
+    with open(os.path.join(path, "eval.csv"), "w", encoding="utf-8") as f:
         f.write(f"f1,precision,recall,accuracy\n")
         for line in data:
-            f.write(f'{line["f1"]},{line["precision"]},{line["recall"]},{line["accuracy"]}\n')
+            f.write(
+                f'{line["f1"]},{line["precision"]},{line["recall"]},{line["accuracy"]}\n')
         f.flush()
 
+
 def get_item(obj):
-    if isinstance(obj,dict):
+    if isinstance(obj, dict):
         for k in obj:
             obj[k] = get_item(obj[k])
     else:
-        if getattr(obj,"item"):
+        if getattr(obj, "item"):
             return obj.item()
     return obj
 
-def generate_report(path,epoch,data):
+
+def generate_report(path, epoch, data):
     data = get_item(data)
-    path = os.path.join(path,"reports")
-    os.makedirs(path,exist_ok=True)
-    with open(os.path.join(path,f"{epoch}_epoch.json"),"w",encoding="utf-8") as f:
-        json.dump(data,f,ensure_ascii=False,indent=2)
+    path = os.path.join(path, "reports")
+    os.makedirs(path, exist_ok=True)
+    with open(os.path.join(path, f"{epoch}_epoch.json"), "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
 
 data_collections = []
 
+
 def compute_metrics(predictions: EvalPrediction):
-    global label_vocab,data_collections,report_path
+    global label_vocab, data_collections, report_path
     epoch = len(data_collections)+1
     labels = predictions.label_ids
     preds = predictions.predictions.argmax(-1)
@@ -129,18 +137,21 @@ def compute_metrics(predictions: EvalPrediction):
     }
 
     data_collections.append(result)
-    generate_report(report_path,epoch,classification_report(trues_list, preds_list, output_dict=True))
+    generate_report(report_path, epoch, classification_report(
+        trues_list, preds_list, output_dict=True))
 
     return result
 
+
 def model_init():
-    
+    set_seed(2021)
     model = BertForTokenClassification.from_pretrained("model/chinese_wwm_ext", num_labels=len(label_vocab),
-                                                   id2label=dict(
+                                                       id2label=dict(
                                                        zip(range(len(label_vocab)), label_vocab.idx2item)),
-                                                   label2id=label_vocab.item2idx)
+                                                       label2id=label_vocab.item2idx)
     model = nn.DataParallel(model, device_ids=[0, 1, 2, 3])
     return model
+
 
 trainer = Trainer(
     model_init=model_init,
@@ -152,4 +163,4 @@ trainer = Trainer(
 
 trainer.train()
 
-generate_csv(report_path,data_collections)
+generate_csv(report_path, data_collections)
