@@ -132,7 +132,7 @@ class NERTrainer(ITrainer):
             self.eval_set = result['eval_set']
             self.eval_iter = result['eval_iter']
 
-    def  train(self, resume_path=False, resume_step=False, lr1=2e-5, lr2=1e-2, eval_call_epoch=None):
+    def train(self, resume_path=False, resume_step=False, lr1=2e-5, lr2=1e-2, eval_call_epoch=None):
 
         optimizer = optim.AdamW([
             {'params': self.model.parameters(), 'lr': lr1},
@@ -206,8 +206,7 @@ class NERTrainer(ITrainer):
                     pred_labels = pred[1:-1]
                     true_labels = labels[remove_pads][1:-1].tolist()
 
-                    assert len(pred_labels)==len(true_labels)
-
+                    assert len(pred_labels) == len(true_labels)
 
                     pred_labels = [label.replace(
                         "M-", "I-") for label in self.analysis.idx2tag(pred_labels)]
@@ -244,7 +243,7 @@ class NERTrainer(ITrainer):
             reports = self.__format_dict(classification_report(
                 all_trues, all_preds, output_dict=True))
             print("train_reports:")
-            print(classification_report(all_trues,all_preds))
+            print(classification_report(all_trues, all_preds))
 
             self.analysis.append_train_record({
                 'loss': loss.data.item(),
@@ -310,7 +309,7 @@ class NERTrainer(ITrainer):
                     pred_labels = pred[1:-1]
                     true_labels = labels[remove_pads][1:-1].tolist()
 
-                    assert len(pred_labels)==len(true_labels)
+                    assert len(pred_labels) == len(true_labels)
 
                     pred_labels = [label.replace(
                         "M-", "I-") for label in self.analysis.idx2tag(pred_labels)]
@@ -346,7 +345,7 @@ class NERTrainer(ITrainer):
             reports = self.__format_dict(classification_report(
                 all_trues, all_preds, output_dict=True))
             print("eval_reports:")
-            print(classification_report(all_trues,all_preds))
+            print(classification_report(all_trues, all_preds))
 
             self.analysis.append_eval_record({
                 'loss': loss.data.item(),
@@ -356,14 +355,13 @@ class NERTrainer(ITrainer):
                 "reports": reports
             })
 
-    def __format_dict(self,d):
-        if isinstance(d,dict):
+    def __format_dict(self, d):
+        if isinstance(d, dict):
             for k in d:
                 d[k] = self.__format_dict(d[k])
             return d
         else:
             return d.item()
-            
 
     def save_model(self, current_step=0):
         if self.task_name is None:

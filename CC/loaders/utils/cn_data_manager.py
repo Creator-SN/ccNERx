@@ -4,62 +4,72 @@ import random
 
 from collections import Iterable
 
+
 class DataManager():
 
     def __init__(self, tags_list, vocab_file_name=None, sentences=None, pad_tag='[PAD]'):
         if vocab_file_name is not None:
-            self.word_to_idx, self.idx_to_word = self.WordIdxFromVocabInit(vocab_file_name)
+            self.word_to_idx, self.idx_to_word = self.WordIdxFromVocabInit(
+                vocab_file_name)
         else:
-            self.word_to_idx, self.idx_to_word = self.WordIdxInit(sentences, pad_tag)
+            self.word_to_idx, self.idx_to_word = self.WordIdxInit(
+                sentences, pad_tag)
         self.tag_to_idx, self.idx_to_tag = self.TagIdxInit(tags_list)
-    
+
     def wordToIdx(self, word):
         try:
             return self.word_to_idx[word]
         except:
             return self.word_to_idx['[UNK]']
-    
+
     def idxToWord(self, idx):
         try:
-            if isinstance(idx,list):
+            if isinstance(idx, list):
                 return list(self.idxToWord(i) for i in idx)
             return self.idx_to_word[idx]
         except:
             return '[UNK]'
-    
+
     def tagToIdx(self, tag):
         try:
-            if isinstance(tag,list):
+            if isinstance(tag, list):
                 return list(self.tagToIdx(i) for i in tag)
             return self.tag_to_idx[tag]
         except:
             return 0
-    
+
     def idxToTag(self, idx):
-        if isinstance(idx,list):
+        if isinstance(idx, list):
             return list(self.idxToTag(i) for i in idx)
         return self.idx_to_tag[idx]
-    
-    def encode(self, sentence, tags, pad_tag='[PAD]', padding_length=100):
-        sentence, tags = self.padding_train(sentence, tags, pad_tag, padding_length)
+
+    def encode(self, sentence, tags=None, pad_tag='[PAD]', padding_length=100):
         sentence = [self.wordToIdx(word) for word in sentence]
-        tags = [self.tagToIdx(tag) for tag in tags]
-        return sentence, tags
-    
-    def decode(self, sentence, tags, pad_tag='[PAD]'):
+        if tags is not None:
+            tags = [self.tagToIdx(tag) for tag in tags]
+            sentence, tags = self.padding_train(
+                sentence, tags, pad_tag, padding_length)
+            return sentence, tags
+        sentence = self.padding_sentence(sentence, pad_tag, padding_length)
+        return sentence
+
+    def decode(self, sentence, tags=None, pad_tag='[PAD]'):
         sentence = [self.idx_to_word[idx] for idx in sentence]
-        tags = [self.idx_to_tag[idx] for idx in tags]
         count = 0
         for i in sentence:
-            count += 1
             if i == pad_tag:
                 break
-        return sentence[:count], tags[:count]
-    
+            count += 1
+        if tags is not None:
+            tags = [self.idx_to_tag[idx] for idx in tags]
+            return sentence[:count], tags[:count]
+        return sentence[:count]
+
     @staticmethod
     def generate_vocab(sentences_list, save_path, pad_tag='[PAD]'):
         result = ""
-        word_to_idx, idx_to_word = DataManager.WordIdxInit(sentences_list, pad_tag)
+        word_to_idx, idx_to_word = DataManager.WordIdxInit(
+            sentences_list, pad_tag)
         for word in word_to_idx:
             result += '{}\n'.format(word)
         result += '[UNK]\n'
@@ -80,7 +90,7 @@ class DataManager():
                     idx_to_word[count] = word
                     count += 1
         return word_to_idx, idx_to_word
-    
+
     @staticmethod
     def WordIdxFromVocabInit(vocab_file_name):
         with open(vocab_file_name, encoding='utf-8') as f:
@@ -129,7 +139,7 @@ class DataManager():
                 sentence.append(arr[0])
                 tags.append(arr[1])
         return sentences, tags_list
-    
+
     '''
     细粒度读取数据(分割更多的句子)
     '''
@@ -160,7 +170,7 @@ class DataManager():
                 sentence.append(arr[0])
                 tags.append(arr[1])
         return sentences, tags_list
-    
+
     @staticmethod
     def ReadJsonData(file_name):
         '''
@@ -175,14 +185,14 @@ class DataManager():
         if ori_list[-1] == '':
             ori_list = ori_list[:-1]
         ori_list = [json.loads(line) for line in ori_list]
-        
+
         for line in ori_list:
             sentence = line['text']
             tags = line['label']
             sentences.append(sentence)
             tags_list.append(tags)
         return sentences, tags_list
-    
+
     '''
     合并读取(用于初始化生成单词表)
     '''
@@ -195,7 +205,7 @@ class DataManager():
             sentences += s
             tags_list += t
         return sentences, tags_list
-    
+
     '''
     读取标签
     '''
@@ -206,7 +216,7 @@ class DataManager():
         if tags_list[-1] == '':
             tags_list = tags_list[:-1]
         return tags_list
-    
+
     '''
     分割数据
     '''
@@ -222,7 +232,7 @@ class DataManager():
         v_s = [sentences[i] for i in val_index]
         v_t = [tags_list[i] for i in val_index]
         return t_s, t_t, v_s, v_t
-    
+
     '''
     填充一条训练集
     sentence: 输入句子['a', 'b', 'c']
@@ -230,14 +240,30 @@ class DataManager():
     pad_tag: 填充标签
     padding_length: 最大填充长度
     '''
-    @staticmethod
-    def padding_train(sentence, tags, pad_tag='[PAD]', padding_length=100):
+
+    def padding_train(self, sentence, tags, pad_tag='[PAD]', padding_length=100):
         if len(sentence) < padding_length:
             remain = padding_length - len(sentence)
             for i in range(remain):
-                sentence.append(pad_tag)
-                tags.append('O')
+                sentence.append(self.wordToIdx(pad_tag))
+                tags.append(self.tagToIdx('O'))
         else:
             sentence = sentence[:padding_length]
             tags = tags[:padding_length]
         return sentence, tags
+
+    '''
+    填充一条句子
+    sentence: 输入句子['a', 'b', 'c']
+    pad_tag: 填充标签
+    padding_length: 最大填充长度
+    '''
+
+    def padding_sentence(self, sentence, pad_tag='[PAD]', padding_length=100):
+        if len(sentence) < padding_length:
+            remain = padding_length - len(sentence)
+            for i in range(remain):
+                sentence.append(self.wordToIdx(pad_tag))
+        else:
+            sentence = sentence[:padding_length]
+        return sentence

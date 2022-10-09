@@ -25,7 +25,7 @@ class NERPredict(IPredict):
             .add_argument("bert_vocab_file", str) \
             .add_argument("bert_config_file_name", str) \
             .add_argument("tag_file", str) \
-            .add_argument("max_seq_length",int) \
+            .add_argument("max_seq_length", int) \
             .add_argument("padding_length", int, 512) \
             .add_argument("num_gpus", list, [0]) \
             .parse(self, **args)
@@ -95,7 +95,7 @@ class NERPredict(IPredict):
                 return inputX.cuda()
             return inputX
 
-    def p(self,sentences):
+    def p(self, sentences):
         device = None
         if self.use_gpu:
             device = torch.device(
@@ -125,10 +125,9 @@ class NERPredict(IPredict):
                     it[key] = self.cuda(it[key])
                 outputs = self.model(**it)
                 hidden_states = outputs['mix_output']
-                return hidden_states,it['input_ids'].gt(0)
+                return hidden_states, it['input_ids'].gt(0)
 
-
-    def pred(self, sentences, return_dict: bool = False,output_logits:bool = False):
+    def pred(self, sentences, return_dict: bool = False, output_logits: bool = False):
         # sentences = self.data_process(sentences)
         device = None
         if self.use_gpu:
@@ -159,17 +158,48 @@ class NERPredict(IPredict):
                     it[key] = self.cuda(it[key])
                 outputs = self.model(**it)
                 hidden_states = outputs['mix_output']
-                logits,pred = self.birnncrf(
+                logits, pred = self.birnncrf(
                     hidden_states, it['input_ids'].gt(0))
                 pred_tags = [self.analysis.idx2tag(it)[1:-1] for it in pred]
                 if not return_dict:
                     if output_logits:
-                        return list(zip(new_sentence,pred_tags)),logits
+                        return list(zip(new_sentence, pred_tags)), logits
                     return list(zip(new_sentence, pred_tags))
                 else:
                     if output_logits:
-                        return [dict(zip(sentence, tags)) for sentence, tags in zip(new_sentence, pred_tags)],logits
+                        return [dict(zip(sentence, tags)) for sentence, tags in zip(new_sentence, pred_tags)], logits
                     return [dict(zip(sentence, tags)) for sentence, tags in zip(new_sentence, pred_tags)]
+        elif self.loader_name == 'cn_loader':
+            max_len = 0
+            for sentence in sentences:
+                if len(sentence) > max_len:
+                    max_len = len(sentence)
+            input_ids_arr = []
+            for sentence in sentences:
+                s = self.dataloader.loader.dm.encode(
+                    sentence, padding_length=max_len)
+                input_ids_arr.append(s)
+            input_ids = torch.tensor(input_ids_arr)
+            it = {
+                'input_ids': input_ids,
+                'attention_mask': input_ids.gt(0)
+            }
+            for key in it.keys():
+                it[key] = self.cuda(it[key])
+            with torch.no_grad():
+                outputs = self.model(**it)
+                hidden_states = outputs['mix_output']
+                logits, pred = self.birnncrf(
+                    hidden_states, it['input_ids'].gt(0))
+            result = []
+            for i, _ in enumerate(input_ids_arr):
+                sentence, tags = self.dataloader.loader.dm.decode(
+                    input_ids_arr[i], pred[i])
+                result.append({
+                    'text': sentence,
+                    'label': tags
+                })
+            return result
         else:
             # TODO: implement cn_loader
             raise NotImplementedError()
