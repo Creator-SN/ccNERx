@@ -285,10 +285,10 @@ class FTDataSetV1(Dataset):
         label_ids = self.label_vocab.token2id(label)
 
         labels = torch.zeros(self.max_seq_length, dtype=torch.int)
-        labels[:len(label_ids)] = tensor(label_ids[:self.max_seq_length]).int()
+        labels[:len(label_ids)] = tensor(label_ids[:self.max_seq_length]).long()
         # init input
         input_token_ids = torch.zeros(self.max_seq_length, dtype=torch.int)
-        input_token_ids[:len(token_ids)] = tensor(token_ids[:self.max_seq_length]).int()
+        input_token_ids[:len(token_ids)] = tensor(token_ids[:self.max_seq_length]).long()
         segment_ids = torch.ones(self.max_seq_length, dtype=torch.int)
         segment_ids[:len(token_ids)] = 0
         attention_mask = torch.zeros(self.max_seq_length, dtype=torch.int)
@@ -311,7 +311,7 @@ class FTDataSetV1(Dataset):
             text, self.max_word_num)
         for i, words in enumerate(matched_words):
             word_ids = self.word_vocab.token2id(words)
-            matched_word_ids[i][:len(word_ids)] = tensor(word_ids).int()
+            matched_word_ids[i][:len(word_ids)] = tensor(word_ids).long()
             matched_word_mask[i][:len(word_ids)] = 1
             ids = []
             masks = [0] * self.max_label_num
@@ -336,8 +336,8 @@ class FTDataSetV1(Dataset):
                         [self.entity_tag_vocab.token2id(self.default_tag)] *
                         self.max_label_num)
             if len(words) > 0:
-                matched_label_ids[i][:len(ids)] = tensor(ids).int()
-                matched_label_mask[i][:len(masks)] = tensor(masks).int()
+                matched_label_ids[i][:len(ids)] = tensor(ids).long()
+                matched_label_mask[i][:len(masks)] = tensor(masks).long()
 
         if return_dict:
             return {

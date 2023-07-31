@@ -156,28 +156,28 @@ class LEBertDataSet(Dataset):
         token_ids = self.tokenizer.convert_tokens_to_ids(text)
         label_ids = self.label_vocab.token2id(label)
 
-        labels = torch.zeros(self.max_seq_length, dtype=torch.int)
+        labels = torch.zeros(self.max_seq_length, dtype=torch.long)
         labels[:len(label_ids)] = torch.tensor(
-            label_ids, dtype=torch.int)
+            label_ids, dtype=torch.long)
         # init input
-        input_token_ids = torch.zeros(self.max_seq_length, dtype=torch.int)
+        input_token_ids = torch.zeros(self.max_seq_length, dtype=torch.long)
         input_token_ids[:len(token_ids)] = torch.tensor(
-            token_ids, dtype=torch.int)
-        token_type_ids = torch.ones(self.max_seq_length, dtype=torch.int)
+            token_ids, dtype=torch.long)
+        token_type_ids = torch.ones(self.max_seq_length, dtype=torch.long)
         token_type_ids[:len(token_ids)] = 0
-        attention_mask = torch.zeros(self.max_seq_length, dtype=torch.int)
+        attention_mask = torch.zeros(self.max_seq_length, dtype=torch.long)
         attention_mask[:len(token_ids)] = 1
         matched_word_ids = torch.zeros(
-            (self.max_seq_length, self.max_word_num), dtype=torch.int)
+            (self.max_seq_length, self.max_word_num), dtype=torch.long)
         matched_word_mask = torch.zeros(
-            (self.max_seq_length, self.max_word_num), dtype=torch.int)
+            (self.max_seq_length, self.max_word_num), dtype=torch.long)
         # get matched word
         matched_words = self.lexicon_tree.getAllMatchedWordList(
             text, self.max_word_num)
         for i, words in enumerate(matched_words):
             word_ids = self.word_vocab.token2id(words)
             matched_word_ids[i][:len(word_ids)] = torch.tensor(
-                word_ids[:self.max_word_num], dtype=torch.int)
+                word_ids[:self.max_word_num], dtype=torch.long)
             matched_word_mask[i][:len(word_ids)] = 1
 
         if return_dict:
